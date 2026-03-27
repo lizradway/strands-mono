@@ -9,6 +9,7 @@
 7. [Appendix B: Competing frameworks](#b-competing-framework-approaches-to-context-management)
 8. [Appendix C: Token counts](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)
 9. [Appendix D: Cost reference](#d-cost-per-token-reference-across-supported-providers)
+10. [Appendix E: Compression break-even](#e-compression-cost-break-even-analysis)
 
 ---
 
@@ -42,7 +43,7 @@ Priority reflects both impact and cost, but is constrained by dependency order. 
 | 3 | **Token Estimation API**<br/>Conversation · [#1294](https://github.com/strands-agents/sdk-python/issues/1294) | Once we can track current size ([#1197](https://github.com/strands-agents/sdk-python/issues/1197)), we need to predict whether new content will fit before sending it. Token counts vary by model provider (Claude vs GPT tokenizers differ), so this needs a provider-abstracted estimation interface. Without it, proactive compression is guesswork. Shipping this early means every subsequent feature can make cost-aware decisions (e.g., "only compress when at 80% capacity"). This issue has 2 pre-exisitng upvotes. | P1 / M | — | — |
 | 4 | **Context Limit Property on Model Interface**<br/>Conversation · [#1295](https://github.com/strands-agents/sdk-python/issues/1295) | Pairs with [#1294](https://github.com/strands-agents/sdk-python/issues/1294). Knowing "you've used 80k tokens" is useless without also knowing "the limit is 100k tokens." Adds a max-context property to the model interface with a lookup table per provider. | P1 / S | — | — |
 | 5 | **Large Tool Result Externalization**<br/>Tool · [#1296](https://github.com/strands-agents/sdk-python/issues/1296) | Uses the existing `AfterToolCallEvent` hooks system to intercept oversized tool results and replace them with summaries/references. Replaces large results with compact references, reducing input tokens on all subsequent requests. Storage cost is minimal (S3/local disk). Unlike compression ([#555](https://github.com/strands-agents/sdk-python/issues/555)) which has a break-even curve (spends tokens to summarize before it saves), externalization is a pure cost reducer from day one with no additional LLM calls (see [Appendix D](#d-cost-per-token-reference-across-supported-providers) for dollar impact). This cost profile, combined with low effort, 3 upvotes, and existing hook infrastructure, justified promotion from P2 to P1. | P1 / M | \$↓ | — |
-| 6 | **Proactive Context Compression**<br/>Conversation · [#555](https://github.com/strands-agents/sdk-python/issues/555) | Most requested context feature (6 upvotes). Today, when context fills up, the request simply fails (users are regularly hitting 200k+ tokens -- see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Compression would automatically summarize older messages as the window fills, keeping the agent functional through long conversations. Each compression event requires an LLM call (spending tokens to save tokens), so short conversations see only cost increase. For long conversations (50+ turns), cumulative input token savings outweigh the one-time summarization cost -- net decrease over time. | P1 / L | \$↕ | Author must choose a summarization strategy (LLM-based is higher quality but costs tokens; extractive is cheaper but lossy) and decide whether to ship one opinionated default or make it pluggable. Should compressed context be reordered to place high-relevance content at attention-favored positions (start/end), or stay chronological? |
+| 6 | **Proactive Context Compression**<br/>Conversation · [#555](https://github.com/strands-agents/sdk-python/issues/555) | Most requested context feature (6 upvotes). Today, when context fills up, the request simply fails (users are regularly hitting 200k+ tokens -- see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Compression would automatically summarize older messages as the window fills, keeping the agent functional through long conversations. Each compression event requires an LLM call (spending tokens to save tokens), so short conversations see only cost increase. For long conversations (50+ turns), cumulative input token savings outweigh the one-time summarization cost -- net decrease over time (see [Appendix E](#e-compression-cost-break-even-analysis) for the full cost model). | P1 / L | \$↕ | Author must choose a summarization strategy (LLM-based is higher quality but costs tokens; extractive is cheaper but lossy) and decide whether to ship one opinionated default or make it pluggable. Should compressed context be reordered to place high-relevance content at attention-favored positions (start/end), or stay chronological? |
 | 7 | **Bridge ConversationManager and SessionManager**<br/>Delegation · [#1679](https://github.com/strands-agents/sdk-python/issues/1679) | Today ConversationManager and SessionManager are isolated. When compression removes old messages, they're gone -- even though SessionManager could store them for retrieval. Bridging these means compressed content becomes recoverable rather than permanently lost. Foundational for the entire "aliasing and navigation" pattern that later features depend on. Adds storage writes (DynamoDB, S3, or local) but no additional LLM calls. | P1 / L | \$↓ | Author must decide if the bridge exposes one interface for both message retrieval and document navigation, or separates them. Does the framework retrieve stored context automatically, or does the agent explicitly request what it needs via tools? |
 | 8 | **In-event-loop Cycle Context Management**<br/>Conversation · [#298](https://github.com/strands-agents/sdk-python/issues/298) | Addresses the pain point where a single tool call within one agent cycle returns a result so large it blows the context (see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Different from [#555](https://github.com/strands-agents/sdk-python/issues/555) (which handles gradual growth across turns) -- this is about managing context within a single execution cycle. Same cost trade-off as [#555](https://github.com/strands-agents/sdk-python/issues/555) (spends tokens to summarize, saves tokens downstream) but triggered mid-cycle. Prevents the costlier alternative: a completely failed request that must be retried from scratch. | P2 / L | \$↕ | — |
 | 9 | **Semantic Dynamic Tool Registry**<br/>Tool · [#1677](https://github.com/strands-agents/sdk-python/issues/1677) | Dynamically load/unload tools based on relevance to the current task. Two approaches: vector-store semantic search (more sophisticated) or file-based with LLM relevance calls (simpler). Adds cost from embedding generation (one-time or infrequent) and similarity search per turn (lightweight), but saves by removing unused tool definitions from context. Net decrease for agents with many tools; marginal for agents with few. | P2 / L | \$↕ | Author must pick a default embedding model and decide whether to align with AgentCore Gateway's implementation (easier integration but couples to their choices) or build independently. Should we take a dependency on an embedding library, or use a lightweight local approach? |
@@ -227,6 +228,89 @@ Input token pricing for Claude models (source: [Anthropic model docs](https://do
 **Worked example using real data**: [sdk-python#1912](https://github.com/strands-agents/sdk-python/issues/1912) reported 248k tokens at overflow. If that agent had been running for 30 turns before hitting the limit, the cumulative input tokens sent across all turns would be in the millions. At Sonnet 4.6 pricing (\$3/MTok), an agent averaging 150k input tokens per turn over 30 turns sends \~4.5M cumulative input tokens = **\$13.50 in input costs for one conversation**. If externalization ([#1296](https://github.com/strands-agents/sdk-python/issues/1296)) keeps context 40% leaner, cumulative input drops to \~2.7M tokens = **\$8.10**, saving **\$5.40 per conversation**. At scale, these savings are material.
 
 **Why this matters for prioritization**: Features that reduce context size (externalization, aliasing, dynamic tool loading) have a direct, measurable cost benefit that scales with usage. Features that increase context cost (delegation, tiered memory) must justify themselves through capability gains (tasks that would otherwise fail) rather than cost savings.
+
+</details>
+
+<details>
+<summary><b>E. Compression cost break-even analysis</b></summary>
+
+This appendix provides the cost model behind the claim in [#6 (Proactive Compression)](#all-tasks) that compression is a net cost increase for short conversations but a net decrease for long ones.
+
+**Model parameters** (derived from [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues) and [Appendix D](#d-cost-per-token-reference-across-supported-providers)):
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| S₀ (system prompt) | 2,000 tokens | Typical system prompt size |
+| T (tokens added per turn) | 4,000 tokens | ~500 user + ~1,500 assistant + ~2,000 tool results |
+| Compression threshold | 160,000 tokens | 80% of 200k Bedrock limit (trigger before overflow) |
+| Compression ratio | 80% reduction | Summary retains 20% of original content |
+| Model pricing | Sonnet 4.6 | $3.00/MTok input, $15.00/MTok output |
+
+**Cost without compression.** At turn *n*, the context contains the system prompt plus all prior messages: C(n) = S₀ + nT. The cumulative input tokens across N turns is:
+
+```
+                   N
+Total_input(N) =   Σ  (S₀ + nT)  =  N·S₀ + T·N(N+1)/2
+                  n=1
+```
+
+Cost grows **quadratically** with conversation length because each new turn pays for all prior context again.
+
+**When compression triggers.** Compression fires when context reaches the threshold:
+
+```
+S₀ + k·T = 160,000  →  k = (160,000 − 2,000) / 4,000 = 39.5  →  turn 40
+```
+
+For conversations shorter than ~40 turns, the threshold is never reached and compression never fires -- **zero cost, zero benefit**.
+
+**Cost of one compression event.** The summarization LLM call reads the full context and produces a summary:
+
+| Component | Tokens | Cost |
+|-----------|--------|------|
+| Summarization input (reading context) | 160,000 | 160,000 × $3.00/MTok = **$0.48** |
+| Summarization output (producing summary) | 32,000 | 32,000 × $15.00/MTok = **$0.48** |
+| **Total compression cost** | | **$0.96** |
+
+**Post-compression savings.** After compression, context drops from 160,000 to S₀ + summary = 2,000 + 32,000 = 34,000 tokens. Every subsequent turn avoids carrying the difference:
+
+```
+Δ = 160,000 − 34,000 = 126,000 tokens saved per turn
+```
+
+At $3.00/MTok input, each subsequent turn saves **$0.378**.
+
+**Break-even.** Compression pays for itself when cumulative savings exceed the one-time compression cost:
+
+```
+R × Δ × price_input  ≥  compression_cost
+
+R × 126,000 × $3.00/MTok  ≥  $0.96
+
+R  ≥  $0.96 / $0.378  =  2.54  →  3 turns
+```
+
+Compression breaks even after just **3 turns** post-compression.
+
+**Worked examples.**
+
+| Conversation length (N) | Compression triggers? | Compression cost | Cumulative savings | Net impact | Cumulative cost without compression | Cumulative cost with compression |
+|---|---|---|---|---|---|---|
+| **10 turns** | No (context = 42k < 160k) | $0 | $0 | $0 | $0.72 | $0.72 |
+| **25 turns** | No (context = 102k < 160k) | $0 | $0 | $0 | $3.98 | $3.98 |
+| **50 turns** | Yes, at turn 40 | $0.96 | 10 turns × $0.378 = $3.78 | **−$2.82** | $15.45 | $12.63 |
+| **100 turns** | Yes, at turn 40; again at ~turn 72 | $1.92 | $14.74 | **−$12.82** | $60.90 | $48.08 |
+
+*Negative net impact = net savings. Costs are for input tokens only; output tokens are unaffected by context size.*
+
+**How the 100-turn case works.** After first compression at turn 40, context resets to 34k and grows by 4k/turn. It reaches 160k again at turn 40 + (160,000 − 34,000)/4,000 = turn 71.5 → second compression at turn 72. Context resets to 34k again. Remaining 28 turns benefit from both compressions.
+
+**Key takeaways:**
+
+1. **Short conversations (< 40 turns):** Compression never triggers. Zero overhead.
+2. **Medium conversations (40–42 turns):** Compression triggers near the end. The $0.96 cost may not be fully recouped if only 1–2 turns remain. This is the only scenario where compression is a net cost increase.
+3. **Long conversations (50+ turns):** Compression triggers with enough remaining turns to break even and generate substantial savings. At 100 turns, savings reach ~$12.82 per conversation.
+4. **The alternative is worse:** Without compression, conversations that reach 160k+ tokens will overflow and fail entirely at 200k. The $0.96 compression cost is far cheaper than a failed request that must be retried or abandoned.
 
 </details>
 
