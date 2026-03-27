@@ -20,36 +20,38 @@ This project addresses context management improvements in Strands as outlined in
 
 Getting this right matters for both performance and cost. Poorly managed context degrades agent quality: irrelevant tools dilute attention and hurt tool selection accuracy, critical earlier context gets lost as conversations grow, and a single oversized tool result can push context into overflow (see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues) for real examples). At the same time, every token in the context window is billed per request, so bloated context compounds costs across every subsequent turn. Several of the proposals here (externalization [#1296](https://github.com/strands-agents/sdk-python/issues/1296), aliasing [#1678](https://github.com/strands-agents/sdk-python/issues/1678), dynamic tool loading [#1677](https://github.com/strands-agents/sdk-python/issues/1677)) directly reduce per-request costs by keeping context lean. Others trade upfront cost (summarization LLM calls [#555](https://github.com/strands-agents/sdk-python/issues/555)) for downstream savings or new capabilities. Cost trade-offs are documented per feature.
 
-Today, Strands offers no first-class support for any of this. Each prompt sends whatever is in the active window without considering relevance. There is no way to dynamically filter tools or manage result sizes -- users must handle these problems themselves. Users are already hitting these limitations in practice (see [Appendix A](#a-real-world-context-overflow-errors-from-github-issues)). This project aims to change that.
+Today, Strands offers no first-class support for any of this. Each prompt sends whatever is in the active window without considering relevance. There is no way to dynamically filter tools or manage result sizes — users must handle these problems themselves. Users are already hitting these limitations in practice (see [Appendix A](#a-real-world-context-overflow-errors-from-github-issues)). This project aims to change that.
 
 The work is organized into **3 tracks**, each targeting a different source of context pressure:
 
-- **Conversation Context** -- Managing message history as it grows. How to track, estimate, compress, and summarize the conversation itself.
-- **Tool Context** -- Managing tool definitions and tool results that consume the window. How to reduce the footprint of tools the agent carries and the outputs they produce.
-- **Delegation** -- Preventing context from accumulating in the first place. How to offload work to sub-agents or external storage so the orchestrator stays lean.
+- **Conversation Context** — Managing message history as it grows. How to track, estimate, compress, and summarize the conversation itself.
+- **Tool Context** — Managing tool definitions and tool results that consume the window. How to reduce the footprint of tools the agent carries and the outputs they produce.
+- **Delegation** — Preventing context from accumulating in the first place. How to offload work to sub-agents or external storage so the orchestrator stays lean.
 
 All features with meaningful cost impact are **opt-in** (users must explicitly configure them). No feature in this project increases costs for users who don't opt in.
+
+**SDK coverage:** This roadmap targets the Python SDK first. TypeScript SDK will follow once Python implementations stabilize, unless the team identifies cases where WASM FFI constraints warrant a different approach or parallel development.
 
 ---
 
 ## All Tasks
 
-Priority reflects both impact and cost, but is constrained by dependency order. **P0 tasks are P0 because they are blockers for everything else** -- they're small, shippable now, and unlock the entire roadmap. High-impact features like Proactive Compression ([#555](https://github.com/strands-agents/sdk-python/issues/555)) are P1 rather than P0 because they can't start until the P0 foundations land.
+Priority reflects both impact and cost, but is constrained by dependency order. **P0 tasks are P0 because they are blockers for everything else** — they're small, shippable now, and unlock the entire roadmap. High-impact features like Proactive Compression ([#555](https://github.com/strands-agents/sdk-python/issues/555)) are P1 rather than P0 because they can't start until the P0 foundations land.
 
 | # | Task | Description | Priority / Size | Cost | Open Questions |
 |---|------|-------------|-----------------|------|----------------|
-| 1 | **Track agent.messages token size**<br/>Conversation · [#1197](https://github.com/strands-agents/sdk-python/issues/1197) | The single most important prerequisite. Today, Strands has no visibility into how full the context window is. Without this metric, no feature can proactively react to context pressure -- compression can't trigger, tools can't be shed, and users get opaque failures when the window overflows. Small in scope (exposing a count) but unlocks everything downstream. | P0 / S | — | — |
+| 1 | **Track agent.messages token size**<br/>Conversation · [#1197](https://github.com/strands-agents/sdk-python/issues/1197) | The single most important prerequisite. Today, Strands has no visibility into how full the context window is. Without this metric, no feature can proactively react to context pressure — compression can't trigger, tools can't be shed, and users get opaque failures when the window overflows. Small in scope (exposing a count) but unlocks everything downstream. | P0 / S | — | — |
 | 2 | **Add metadata field to messages**<br/>Conversation · [#1532](https://github.com/strands-agents/sdk-python/issues/1532) | Messages currently have no way to carry annotations like "this was summarized from turns 5-20" or "this is an alias for a large tool result stored externally." Without metadata, compression and aliasing features would need hacky workarounds to track provenance. | P0 / S | — | — |
-| 3 | **Token Estimation API**<br/>Conversation · [#1294](https://github.com/strands-agents/sdk-python/issues/1294) | Once we can track current size ([#1197](https://github.com/strands-agents/sdk-python/issues/1197)), we need to predict whether new content will fit before sending it. Token counts vary by model provider (Claude vs GPT tokenizers differ), so this needs a provider-abstracted estimation interface. Without it, proactive compression is guesswork. Shipping this early means every subsequent feature can make cost-aware decisions (e.g., "only compress when at 80% capacity"). This issue has 2 pre-exisitng upvotes. | P1 / M | — | — |
+| 3 | **Token Estimation API**<br/>Conversation · [#1294](https://github.com/strands-agents/sdk-python/issues/1294) | Once we can track current size ([#1197](https://github.com/strands-agents/sdk-python/issues/1197)), we need to predict whether new content will fit before sending it. Token counts vary by model provider (Claude vs GPT tokenizers differ), so this needs a provider-abstracted estimation interface. Without it, proactive compression is guesswork. Shipping this early means every subsequent feature can make cost-aware decisions (e.g., "only compress when at 80% capacity"). This issue has 2 pre-existing upvotes. | P1 / M | — | — |
 | 4 | **Context Limit Property on Model Interface**<br/>Conversation · [#1295](https://github.com/strands-agents/sdk-python/issues/1295) | Pairs with [#1294](https://github.com/strands-agents/sdk-python/issues/1294). Knowing "you've used 80k tokens" is useless without also knowing "the limit is 100k tokens." Adds a max-context property to the model interface with a lookup table per provider. | P1 / S | — | — |
-| 5 | **Large Tool Result Externalization**<br/>Tool · [#1296](https://github.com/strands-agents/sdk-python/issues/1296) | Uses the existing `AfterToolCallEvent` hooks system to intercept oversized tool results and replace them with summaries/references. Replaces large results with compact references, reducing input tokens on all subsequent requests. Storage cost is minimal (S3/local disk). Unlike compression ([#555](https://github.com/strands-agents/sdk-python/issues/555)) which has a break-even curve (spends tokens to summarize before it saves), externalization is a pure cost reducer from day one with no additional LLM calls (see [Appendix D](#d-cost-per-token-reference-across-supported-providers) for dollar impact). This cost profile, combined with low effort, 3 upvotes, and existing hook infrastructure, justified promotion from P2 to P1. | P1 / M | \$↓ | — |
-| 6 | **Proactive Context Compression**<br/>Conversation · [#555](https://github.com/strands-agents/sdk-python/issues/555) | Most requested context feature (6 upvotes). Today, when context fills up, the request simply fails (users are regularly hitting 200k+ tokens -- see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Compression would automatically summarize older messages as the window fills, keeping the agent functional through long conversations. Each compression event requires an LLM call (spending tokens to save tokens), so short conversations see only cost increase. For long conversations (50+ turns), cumulative input token savings outweigh the one-time summarization cost -- net decrease over time (see [Appendix E](#e-compression-cost-break-even-analysis) for the full cost model). | P1 / L | \$↕ | Author must choose a summarization strategy (LLM-based is higher quality but costs tokens; extractive is cheaper but lossy) and decide whether to ship one opinionated default or make it pluggable. Should compressed context be reordered to place high-relevance content at attention-favored positions (start/end), or stay chronological? |
-| 7 | **Bridge ConversationManager and SessionManager**<br/>Delegation · [#1679](https://github.com/strands-agents/sdk-python/issues/1679) | Today ConversationManager and SessionManager are isolated. When compression removes old messages, they're gone -- even though SessionManager could store them for retrieval. Bridging these means compressed content becomes recoverable rather than permanently lost. Foundational for the entire "aliasing and navigation" pattern that later features depend on. Adds storage writes (DynamoDB, S3, or local) but no additional LLM calls. | P1 / L | \$↓ | Author must decide if the bridge exposes one interface for both message retrieval and document navigation, or separates them. Does the framework retrieve stored context automatically, or does the agent explicitly request what it needs via tools? |
-| 8 | **In-event-loop Cycle Context Management**<br/>Conversation · [#298](https://github.com/strands-agents/sdk-python/issues/298) | Addresses the pain point where a single tool call within one agent cycle returns a result so large it blows the context (see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Different from [#555](https://github.com/strands-agents/sdk-python/issues/555) (which handles gradual growth across turns) -- this is about managing context within a single execution cycle. Same cost trade-off as [#555](https://github.com/strands-agents/sdk-python/issues/555) (spends tokens to summarize, saves tokens downstream) but triggered mid-cycle. Prevents the costlier alternative: a completely failed request that must be retried from scratch. | P2 / L | \$↕ | — |
+| 5 | **Large Tool Result Externalization**<br/>Tool · [#1296](https://github.com/strands-agents/sdk-python/issues/1296) | Uses the existing `AfterToolCallEvent` hooks system to intercept oversized tool results and replace them with summaries/references. Depends on token tracking ([#1197](https://github.com/strands-agents/sdk-python/issues/1197)) and estimation ([#1294](https://github.com/strands-agents/sdk-python/issues/1294)) to determine what qualifies as "oversized." Replaces large results with compact references, reducing input tokens on all subsequent requests. Storage cost is minimal (S3/local disk). Unlike compression ([#555](https://github.com/strands-agents/sdk-python/issues/555)) which has a break-even curve (spends tokens to summarize before it saves), externalization is a pure cost reducer from day one with no additional LLM calls (see [Appendix D](#d-cost-per-token-reference-across-supported-providers) for dollar impact). This cost profile, combined with low effort, 3 upvotes, and existing hook infrastructure, justified promotion from P2 to P1. | P1 / M | \$↓ | — |
+| 6 | **Proactive Context Compression**<br/>Conversation · [#555](https://github.com/strands-agents/sdk-python/issues/555) | Most requested context feature (6 upvotes). Today, when context fills up, the request simply fails (users are regularly hitting 200k+ tokens — see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Compression would automatically summarize older messages as the window fills, keeping the agent functional through long conversations. Each compression event requires an LLM call (spending tokens to save tokens). Short conversations never reach the compression threshold and see zero impact. For long conversations (50+ turns), cumulative input token savings outweigh the summarization cost — net decrease over time. The narrow risk window is conversations that trigger compression near their end, where the cost may not be fully recouped (see [Appendix E](#e-compression-cost-break-even-analysis) for the full cost model). | P1 / L | \$↕ | Summarization strategy: LLM-based vs extractive, opinionated default vs pluggable. Content ordering: chronological vs attention-favored (start/end). Prompt caching: compression invalidates cache prefixes, potentially increasing costs. Quality: lossy compression needs regression detection and rollback. Latency: adds a full LLM round-trip per compression. See [Appendix E](#e-compression-cost-break-even-analysis) for cost sensitivity analysis. |
+| 7 | **Bridge ConversationManager and SessionManager**<br/>Delegation · [#1679](https://github.com/strands-agents/sdk-python/issues/1679) | Today ConversationManager and SessionManager are isolated. When compression removes old messages, they're gone — even though SessionManager could store them for retrieval. Bridging these means compressed content becomes recoverable rather than permanently lost. Foundational for the entire "aliasing and navigation" pattern that later features depend on. Adds storage writes (DynamoDB, S3, or local) but no additional LLM calls. | P1 / L | \$↓ | Author must decide if the bridge exposes one interface for both message retrieval and document navigation, or separates them. Does the framework retrieve stored context automatically, or does the agent explicitly request what it needs via tools? |
+| 8 | **In-event-loop Cycle Context Management**<br/>Conversation · [#298](https://github.com/strands-agents/sdk-python/issues/298) | Addresses the pain point where a single tool call within one agent cycle returns a result so large it blows the context (see [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues)). Different from [#555](https://github.com/strands-agents/sdk-python/issues/555) (which handles gradual growth across turns) — this is about managing context within a single execution cycle. Same cost trade-off as [#555](https://github.com/strands-agents/sdk-python/issues/555) (spends tokens to summarize, saves tokens downstream) but triggered mid-cycle. Prevents the costlier alternative: a completely failed request that must be retried from scratch. | P2 / L | \$↕ | — |
 | 9 | **Semantic Dynamic Tool Registry**<br/>Tool · [#1677](https://github.com/strands-agents/sdk-python/issues/1677) | Dynamically load/unload tools based on relevance to the current task. Two approaches: vector-store semantic search (more sophisticated) or file-based with LLM relevance calls (simpler). Adds cost from embedding generation (one-time or infrequent) and similarity search per turn (lightweight), but saves by removing unused tool definitions from context. Net decrease for agents with many tools; marginal for agents with few. | P2 / L | \$↕ | Author must pick a default embedding model and decide whether to align with AgentCore Gateway's implementation (easier integration but couples to their choices) or build independently. Should we take a dependency on an embedding library, or use a lightweight local approach? |
-| 10 | **Large Content Aliasing for Tool Results**<br/>Tool · [#1678](https://github.com/strands-agents/sdk-python/issues/1678) | Rather than inlining large content (documents, images, big tool results) directly into context, store an alias/reference and let the agent navigate to the full content on demand. Same pattern as [#1296](https://github.com/strands-agents/sdk-python/issues/1296) -- a pure cost reducer with no additional LLM calls. P2 rather than P1 because it depends on the ConversationManager/SessionManager bridge ([#1679](https://github.com/strands-agents/sdk-python/issues/1679)) to have somewhere to store the full content. | P2 / M | \$↓ | — |
+| 10 | **Large Content Aliasing for Tool Results**<br/>Tool · [#1678](https://github.com/strands-agents/sdk-python/issues/1678) | Rather than inlining large content (documents, images, big tool results) directly into context, store an alias/reference and let the agent navigate to the full content on demand. Same pattern as [#1296](https://github.com/strands-agents/sdk-python/issues/1296) — a pure cost reducer with no additional LLM calls. P2 rather than P1 because it depends on the ConversationManager/SessionManager bridge ([#1679](https://github.com/strands-agents/sdk-python/issues/1679)) to have somewhere to store the full content. | P2 / M | \$↓ | — |
 | 11 | **Autonomous Tool Discovery Meta-tool**<br/>Tool · [#1680](https://github.com/strands-agents/sdk-python/issues/1680) | A `load_relevant_tools` meta-tool that lets the agent itself decide when it needs more tools. Each call is an additional tool-use turn (input + output tokens), but avoids the ongoing cost of carrying unused tool definitions. Net decrease for agents that would otherwise load everything upfront; unnecessary overhead for small toolsets. P3 because it's less urgent than the foundational pieces. | P3 / L | \$↑ | Author must scope what the meta-tool can discover: only tools from a pre-registered catalog, or also from external sources like MCP servers and APIs? Broader scope is more powerful but adds complexity and security surface. |
-| 12 | **Autonomous Delegation Meta-tool**<br/>Delegation · [#1681](https://github.com/strands-agents/sdk-python/issues/1681) | Lets agents spawn sub-agents for sub-tasks, keeping the orchestrator's context clean. Most cost-increasing feature in the project. Each delegation spawns a sub-agent with its own LLM calls -- an agent delegating 5 sub-tasks pays ~5x the LLM cost. The trade-off: the alternative is often "task fails entirely" due to context overflow. P3 because foundational context management features are more urgent. | P3 / L | \$↑↑ | Author must define what triggers delegation: does the agent decide entirely on its own, or do heuristics help (e.g., "delegate if estimated sub-task exceeds X% of remaining context")? How much of the parent's conversation history does the child agent inherit — full context, relevant subset, or nothing? |
+| 12 | **Autonomous Delegation Meta-tool**<br/>Delegation · [#1681](https://github.com/strands-agents/sdk-python/issues/1681) | Lets agents spawn sub-agents for sub-tasks, keeping the orchestrator's context clean. Most cost-increasing feature in the project. Each delegation spawns a sub-agent with its own LLM calls — an agent delegating 5 sub-tasks pays ~5x the LLM cost. The trade-off: the alternative is often "task fails entirely" due to context overflow. P3 because foundational context management features are more urgent. | P3 / L | \$↑↑ | Author must define what triggers delegation: does the agent decide entirely on its own, or do heuristics help (e.g., "delegate if estimated sub-task exceeds X% of remaining context")? How much of the parent's conversation history does the child agent inherit — full context, relevant subset, or nothing? |
 | 13 | **Context Navigation Meta-tools**<br/>Delegation · [#1682](https://github.com/strands-agents/sdk-python/issues/1682) | The first feature where "the agent manages its own memory." Tools to search conversation history, retrieve past interactions, and navigate stored context. Each navigation action is an additional tool-use turn plus storage reads. Cost proportional to navigation frequency. P3 because it depends on aliasing ([#1678](https://github.com/strands-agents/sdk-python/issues/1678)) and delegation ([#1681](https://github.com/strands-agents/sdk-python/issues/1681)). | P3 / L | \$↑ | — |
 | 14 | **Tiered Memory (MemGPT-inspired)**<br/>Delegation · [#1683](https://github.com/strands-agents/sdk-python/issues/1683) | The capstone feature. OS-like virtual memory: active context (RAM), recall memory (recent history/swap), archival memory (long-term/disk). Content pages between tiers based on relevance. Combines costs from LLM relevance assessment, storage operations, and potential embedding generation. Offset by keeping context lean for long-running agents. P3 because it's the most ambitious feature, depends on nearly everything else, and is informed by active research (MemGPT paper). | P3 / XL | \$↑↑ | Author must define the migration story: users already use Strands multi-agent patterns for delegation. Will tiered memory compose with existing patterns, replace them, or require a breaking change? |
 
@@ -89,8 +91,11 @@ graph TD
     T3 --> T4
     T1 --> T6
     T4 --> T6
+    T1 --> T5
+    T3 --> T5
     T6 --> T8
     T7 --> T10
+    T9 --> T11
     T10 --> T13
     T12 --> T13
     T10 --> T14
@@ -145,7 +150,13 @@ All context management strategies must work across Bedrock, OpenAI, Anthropic di
 
 ## Measuring Success
 
-The SDK does not have telemetry, so we have no way to directly measure adoption rates, failure reduction, or cost impact across users. Our primary signals are qualitative: GitHub issue volume and upvotes for context-related problems, Slack support questions, and whether users continue building custom workarounds for problems the SDK should solve. We can track download counts and changelog engagement for releases that include these features, but can't attribute usage to specific APIs. If we want quantitative signal in the future, there is the option to partner with AgentCore to measure adoption of Strands context management features for agents deployed through their platform (though this would only cover a subset of users).
+**What success looks like** (acceptance criteria by phase):
+
+- **P0 (Observability):** Token tracking and metadata are available on every agent invocation. Users can inspect context size programmatically without workarounds.
+- **P1 (Foundations):** Agents with compression or externalization enabled can complete conversations that previously failed due to context overflow (specifically, the failure categories in [Appendix A](#a-real-world-context-overflow-errors-from-github-issues) are recoverable). No new GitHub issues reporting context overflow for configurations that use these features.
+- **P2/P3 (Extensions):** Agents with 20+ tools can operate without loading all tool definitions upfront. Long-running agents (100+ turns) maintain task quality comparable to fresh conversations.
+
+**How we measure** (given constraints): The SDK does not have telemetry, so we cannot directly measure adoption rates, failure reduction, or cost impact across users. Our primary signals are qualitative: GitHub issue volume and upvotes for context-related problems, Slack support questions, and whether users continue building custom workarounds for problems the SDK should solve. We can track download counts and changelog engagement for releases that include these features, but can't attribute usage to specific APIs. If we want quantitative signal in the future, there is the option to partner with AgentCore to measure adoption of Strands context management features for agents deployed through their platform (though this would only cover a subset of users).
 
 ---
 
@@ -187,12 +198,12 @@ How other frameworks handle context management today, and where Strands aims to 
 
 | Framework | Approach | Limitations |
 |-----------|----------|-------------|
-| **LangChain** | `ConversationSummaryBufferMemory` -- keeps recent messages verbatim, summarizes older ones. Also offers `ConversationTokenBufferMemory` (hard token cutoff) and `ConversationEntityMemory` (entity extraction). | Summarization is LLM-based only (no extractive option). No tool-aware compression -- tool pairs can be split. No dynamic tool loading. Memory types are mutually exclusive, not composable. |
-| **AutoGen** | `TransformMessages` with `MessageTokenLimiter` and `MessageHistoryLimiter`. Runs transforms as a pipeline before each LLM call. | Token-based truncation only -- no summarization, no semantic relevance. Dropped messages are permanently lost (no session bridge). No tool context management. |
-| **MemGPT / Letta** | Full tiered memory (main context, recall, archival) with agent-controlled paging. The agent explicitly decides what to page in/out. | Tightly coupled to its own runtime -- not usable as a library within other frameworks. Heavy operational footprint (requires vector DB, dedicated server). Research prototype maturity. |
+| **LangChain** | `ConversationSummaryBufferMemory` — keeps recent messages verbatim, summarizes older ones. Also offers `ConversationTokenBufferMemory` (hard token cutoff) and `ConversationEntityMemory` (entity extraction). | Summarization is LLM-based only (no extractive option). No tool-aware compression — tool pairs can be split. No dynamic tool loading. Memory types are mutually exclusive, not composable. |
+| **AutoGen** | `TransformMessages` with `MessageTokenLimiter` and `MessageHistoryLimiter`. Runs transforms as a pipeline before each LLM call. | Token-based truncation only — no summarization, no semantic relevance. Dropped messages are permanently lost (no session bridge). No tool context management. |
+| **MemGPT / Letta** | Full tiered memory (main context, recall, archival) with agent-controlled paging. The agent explicitly decides what to page in/out. | Tightly coupled to its own runtime — not usable as a library within other frameworks. Heavy operational footprint (requires vector DB, dedicated server). Research prototype maturity. |
 | **CrewAI** | Delegation-first: agents delegate to sub-agents, each with their own context. Short-term, long-term, and entity memory tiers. | Memory is framework-managed, not agent-controlled (violates "autonomy over configuration"). No fine-grained tool context management. |
 
-**Where Strands differentiates**: Provider-agnostic (works across Bedrock, OpenAI, Anthropic direct), composable (mix compression + aliasing + delegation), and agent-controlled (meta-tools let the agent manage its own context rather than relying solely on framework heuristics). The goal is to combine the best ideas from each -- LangChain's summarization, MemGPT's tiered memory, CrewAI's delegation -- in a modular, opt-in architecture.
+**Where Strands differentiates**: Provider-agnostic (works across Bedrock, OpenAI, Anthropic direct), composable (mix compression + aliasing + delegation), and agent-controlled (meta-tools let the agent manage its own context rather than relying solely on framework heuristics). The goal is to combine the best ideas from each — LangChain's summarization, MemGPT's tiered memory, CrewAI's delegation — in a modular, opt-in architecture.
 
 </details>
 
@@ -234,83 +245,53 @@ Input token pricing for Claude models (source: [Anthropic model docs](https://do
 <details>
 <summary><b>E. Compression cost break-even analysis</b></summary>
 
-This appendix provides the cost model behind the claim in [#6 (Proactive Compression)](#all-tasks) that compression is a net cost increase for short conversations but a net decrease for long ones.
+This appendix provides the cost model behind the claim in [#6 (Proactive Compression)](#all-tasks) that compression has zero impact on short conversations, a net cost decrease for long ones, and a narrow risk window for conversations that trigger compression near their end.
 
-**Model parameters** (derived from [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues) and [Appendix D](#d-cost-per-token-reference-across-supported-providers)):
+**Setup.** Assume 2k system prompt (S₀), 4k tokens added per turn (T ≈ 500 user + 1,500 assistant + 2,000 tool results), compression at 80% of 200k limit (160k tokens), 80% compression ratio (summary retains 20%), and Sonnet 4.6 pricing ($3/MTok input, $15/MTok output). Parameters derived from [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues) and [Appendix D](#d-cost-per-token-reference-across-supported-providers).
 
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| S₀ (system prompt) | 2,000 tokens | Typical system prompt size |
-| T (tokens added per turn) | 4,000 tokens | ~500 user + ~1,500 assistant + ~2,000 tool results |
-| Compression threshold | 160,000 tokens | 80% of 200k Bedrock limit (trigger before overflow) |
-| Compression ratio | 80% reduction | Summary retains 20% of original content |
-| Model pricing | Sonnet 4.6 | $3.00/MTok input, $15.00/MTok output |
-
-**Cost without compression.** At turn *n*, the context contains the system prompt plus all prior messages: C(n) = S₀ + nT. The cumulative input tokens across N turns is:
+**Cost without compression.** At turn *n*, context size is C(n) = S₀ + nT. Cumulative input tokens across N turns:
 
 ```
-                   N
-Total_input(N) =   Σ  (S₀ + nT)  =  N·S₀ + T·N(N+1)/2
-                  n=1
+Total_input(N) = N·S₀ + T·N(N+1)/2
 ```
 
-Cost grows **quadratically** with conversation length because each new turn pays for all prior context again.
+Cost grows **quadratically** — each new turn pays for all prior context again.
 
-**When compression triggers.** Compression fires when context reaches the threshold:
+**Compression trigger and cost.** Compression fires when context reaches 160k, at turn ~40 (S₀ + 40×4k ≈ 162k). The summarization call reads 160k tokens and produces a 32k summary:
 
-```
-S₀ + k·T = 160,000  →  k = (160,000 − 2,000) / 4,000 = 39.5  →  turn 40
-```
+- Input: 160k × $3/MTok = $0.48
+- Output: 32k × $15/MTok = $0.48
+- **Total: $0.96**
 
-For conversations shorter than ~40 turns, the threshold is never reached and compression never fires -- **zero cost, zero benefit**.
-
-**Cost of one compression event.** The summarization LLM call reads the full context and produces a summary:
-
-| Component | Tokens | Cost |
-|-----------|--------|------|
-| Summarization input (reading context) | 160,000 | 160,000 × $3.00/MTok = **$0.48** |
-| Summarization output (producing summary) | 32,000 | 32,000 × $15.00/MTok = **$0.48** |
-| **Total compression cost** | | **$0.96** |
-
-**Post-compression savings.** After compression, context drops from 160,000 to S₀ + summary = 2,000 + 32,000 = 34,000 tokens. Every subsequent turn avoids carrying the difference:
-
-```
-Δ = 160,000 − 34,000 = 126,000 tokens saved per turn
-```
-
-At $3.00/MTok input, each subsequent turn saves **$0.378**.
-
-**Break-even.** Compression pays for itself when cumulative savings exceed the one-time compression cost:
-
-```
-R × Δ × price_input  ≥  compression_cost
-
-R × 126,000 × $3.00/MTok  ≥  $0.96
-
-R  ≥  $0.96 / $0.378  =  2.54  →  3 turns
-```
-
-Compression breaks even after just **3 turns** post-compression.
+Post-compression, context drops from 160k to 34k (S₀ + summary). Every subsequent turn saves 126k tokens = **$0.378/turn**. Break-even: $0.96 / $0.378 = **3 turns** post-compression.
 
 **Worked examples.**
 
-| Conversation length (N) | Compression triggers? | Compression cost | Cumulative savings | Net impact | Cumulative cost without compression | Cumulative cost with compression |
-|---|---|---|---|---|---|---|
-| **10 turns** | No (context = 42k < 160k) | $0 | $0 | $0 | $0.72 | $0.72 |
-| **25 turns** | No (context = 102k < 160k) | $0 | $0 | $0 | $3.98 | $3.98 |
-| **50 turns** | Yes, at turn 40 | $0.96 | 10 turns × $0.378 = $3.78 | **−$2.82** | $15.45 | $12.63 |
-| **100 turns** | Yes, at turn 40; again at ~turn 72 | $1.92 | $14.74 | **−$12.82** | $60.90 | $48.08 |
+| Conversation | Compressions | Net cost impact | Without compression | With compression |
+|---|---|---|---|---|
+| **< 40 turns** | 0 (threshold not reached) | **$0** | — | — |
+| **50 turns** | 1 (at turn 40) | **−$2.82** | $15.45 | $12.63 |
+| **100 turns** | 2 (at turns 40, 72) | **−$12.82** | $60.90 | $48.08 |
 
-*Negative net impact = net savings. Costs are for input tokens only; output tokens are unaffected by context size.*
+*Negative = net savings. At 100 turns, context re-fills by turn 72 (34k + 31.5×4k ≈ 160k) → second compression at $0.96, then 28 remaining turns benefit from the reset.*
 
-**How the 100-turn case works.** After first compression at turn 40, context resets to 34k and grows by 4k/turn. It reaches 160k again at turn 40 + (160,000 − 34,000)/4,000 = turn 71.5 → second compression at turn 72. Context resets to 34k again. Remaining 28 turns benefit from both compressions.
+**Sensitivity.** The 80% compression ratio is the optimistic base case. Break-even degrades at lower ratios, and improves significantly with a cheaper summarization model:
 
-**Key takeaways:**
+| Variable | Compression cost | Tokens saved/turn | Break-even |
+|---|---|---|---|
+| 80% ratio (base case) | $0.96 | 126k | 3 turns |
+| 60% ratio | $1.44 | 96k | 5 turns |
+| 40% ratio | $1.92 | 64k | 10 turns |
+| 20% ratio | $2.40 | 32k | 25 turns |
+| 80% ratio, Haiku 4.5 summarizer | $0.32 | 126k | 1 turn |
 
-1. **Short conversations (< 40 turns):** Compression never triggers. Zero overhead.
-2. **Medium conversations (40–42 turns):** Compression triggers near the end. The $0.96 cost may not be fully recouped if only 1–2 turns remain. This is the only scenario where compression is a net cost increase.
-3. **Long conversations (50+ turns):** Compression triggers with enough remaining turns to break even and generate substantial savings. At 100 turns, savings reach ~$12.82 per conversation.
-4. **The alternative is worse:** Without compression, conversations that reach 160k+ tokens will overflow and fail entirely at 200k. The $0.96 compression cost is far cheaper than a failed request that must be retried or abandoned.
+At 40% reduction, break-even extends to 10 turns — still achievable in long conversations, but the margin shrinks. Using Haiku ($1/$5 per MTok) instead of Sonnet for summarization cuts the compression cost by ~3x, making it nearly free relative to the savings.
+
+**Caveats.**
+
+- **Bursty growth**: This model assumes uniform 4k tokens/turn. Real conversations are bursty — [Appendix C](#c-how-fast-context-fills-up-real-token-counts-from-github-issues) shows single tool results can exceed 200k tokens. The uniform model captures general cost dynamics but understates how quickly compression triggers in tool-heavy agents.
+- **Overestimated compression cost**: The model sends the full 160k context to the summarizer. In practice, only the older messages being evicted would be summarized, reducing actual cost.
+- **Prompt caching interaction**: Providers like Anthropic offer prompt caching (90% input discount on cached tokens). Compression rewrites early messages, invalidating the cache prefix. For users with high cache hit rates and low compression ratios, compression could be a net cost increase even for long conversations. The implementation must detect when prompt caching is active and adjust accordingly.
 
 </details>
 
