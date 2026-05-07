@@ -44,11 +44,7 @@ L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure:
-- Before eviction, `ContextCompression` triggers a `SessionManager` snapshot — preserving the full `messages` array as-is
-- Framework then compresses L0 (replace with summaries or drop) and caches oversized tool results automatically
-- `retrieveToolResult` is always available — the agent can recover a truncated tool output without reasoning about context
-- L1 = prior snapshots. Immutable, complete, chronologically sorted. Never edited.
+Both strategies share the same infrastructure. When context pressure builds, the framework snapshots the full `messages` array to L1, then compresses L0 (summarize or drop). Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context. L1 is just prior snapshots — immutable, complete, chronologically sorted, never edited.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
 
