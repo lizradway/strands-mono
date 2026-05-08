@@ -43,7 +43,7 @@ L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure. When context pressure builds, L0 is compressed (summarize or drop). In v2, evicted messages are appended to the transcript (L1) before compression — the transcript is append-only, chronologically ordered, never edited. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
+Both strategies share the same infrastructure. When context pressure builds, L0 is compressed — evicted messages are appended to the transcript (L1) before removal from L0. The transcript is append-only, chronologically ordered, never edited. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
 
@@ -54,13 +54,12 @@ The logic lives in plugins, not tools. Tools are agent-facing wrappers around pl
 | Framework compresses when threshold hit | Yes | Yes |
 | Framework caches oversized tool results | Yes | Yes |
 | Agent can recover truncated tool output | Yes (`retrieveToolResult`) | Yes |
-| Agent can read from the transcript (L1) | No | Yes (`getTranscript`) |
-| Agent can search the transcript | No | Yes (`searchTranscript`) |
-| Agent can check its context budget | No | Yes (`getContextBudget`) |
 | Agent can trigger compression | No | Yes (`compressContext`) |
 | Agent can protect messages from eviction | No | Yes (`pinMessage`) |
-| Agent can modify system prompt | No | Yes (`updateSystemPrompt`) |
+| Agent can read from the transcript (L1) | No | Yes (`getTranscript`) |
+| Agent can search the transcript | No | Yes (`searchTranscript`) |
 | Agent can spawn context-aware children | No | Yes (`delegateWithContext`) |
+| Agent can check its context budget | No | Yes (`getContextBudget`) |
 
 Users who don't want presets can build custom context management using the same infrastructure. Token tracking ([#1197](https://github.com/strands-agents/sdk-python/issues/1197)), message metadata ([#1532](https://github.com/strands-agents/sdk-python/issues/1532)), token estimation ([#1294](https://github.com/strands-agents/sdk-python/issues/1294)), and context limit ([#1295](https://github.com/strands-agents/sdk-python/issues/1295)) together give users everything they need to write their own `BeforeModelCallEvent` hooks with custom policies. The presets are opinionated compositions of these primitives, not the only way to use them.
 
@@ -76,7 +75,7 @@ In v2, `ContextCompression` also writes evicted messages to the transcript (L1) 
 
 > **Note:** `"agentic"` is experimental. It depends on research into whether models effectively use context management tools. `"auto"` ships first and is the primary focus.
 
-Everything `"auto"` does still happens — the agent *also* gets tools to actively manage its own L0. It can decide when to compress, what to protect from eviction, modify the system prompt, and browse evicted messages in L1.
+Everything `"auto"` does still happens — the agent *also* gets tools to actively manage its own L0. It can decide when to compress, what to protect from eviction, and browse evicted messages in L1.
 
 The transcript is append-only — evicted messages accumulate but are never edited. The agent's power is over L0: what stays in the context window.
 
@@ -124,7 +123,7 @@ Under the hood, this wires up:
 
 | Component | What it does |
 |-----------|-------------|
-| **`ContextOffloader`** | Oversized tool results cached separately (short-lived, auto-evicting) via `AfterToolCallEvent` hook. Agent sees a truncated preview. Provides `retrieveToolResult` tool for on-demand access. Renamed to `ToolResultCache` in v2. |
+| **`ContextOffloader`** | Oversized tool results cached separately (short-lived, auto-evicting) via `AfterToolCallEvent` hook. Agent sees a truncated preview. Provides `retrieveToolResult` tool for on-demand access. Absorbed into `ContextCompression` in v2. |
 | **Proactive compression on conversation manager** | `BeforeModelCallEvent` hook checks L0 token usage against threshold. When exceeded, compresses older messages in L0. |
 | **Message protection** | Position-based pinning (`protectedMessages = 1` by default) ensures the task prompt is never evicted. |
 
@@ -159,9 +158,10 @@ Each plugin has a single cohesive responsibility. Storage is configured at the `
 | Component | Domain | Tools | Mode |
 |-----------|--------|-------|------|
 | **`ToolResultCache`** | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
-| **`ContextCompression`** | Write to L0; writes evicted messages to transcript (L1) | `compressContext`, `pinMessage` (all agentic) | Both |
-| **`ContextNavigation`** | Read/inspect transcript + context state | `getTranscript`, `searchTranscript`, `getContextBudget`, `updateSystemPrompt` | Agentic only |
+| **`ContextCompression`** | L0 writes — compression, pinning | `compressContext`, `pinMessage` (agentic) | Both |
+| **`ContextNavigation`** | L1 reads — transcript access | `getTranscript`, `searchTranscript` | Agentic only |
 | **`ContextDelegation`** | Context-aware child spawning | `delegateWithContext` | Agentic only |
+| `getContextBudget` | Inspect current L0 token usage | — | Agentic (standalone tool) |
 
 v2 introduces `OnContextOverflowEvent` — a new lifecycle event fired on context length errors, replacing the opaque retry logic in conversation managers. The SDK already normalizes these errors across all providers into `ContextWindowOverflowError` — this event just exposes that to plugins.
 
@@ -184,11 +184,11 @@ We need to prove the behavior first. v1 is opt-in so we can validate with early 
 
 **Q: What happens when users upgrade from v1 to v2?**
 
-Two changes: (1) `"auto"` becomes the default — agents that didn't set `contextManagement` now get it automatically. Users who don't want this can set `contextManagement: false`. (2) Internals upgrade — `ToolResultCache` replaces `ContextOffloader`, `ContextCompression` replaces conversation manager proactive compression — same external behavior.
+Two changes: (1) `"auto"` becomes the default — agents that didn't set `contextManagement` now get it automatically. Users who don't want this can set `contextManagement: false`. (2) Internals upgrade — `ToolResultCache` replaces `ContextOffloader`, `ContextCompression` replaces conversation manager compression — same external behavior.
 
 **Q: What if the user provides their own plugin?**
 
-Deduplication detects by type and skips the preset's version. User's `ToolResultCache` or `ContextCompression`/`ContextNavigation` (v2) wins.
+Deduplication detects by type and skips the preset's version. User's `ToolResultCache`, `ContextCompression`, or `ContextNavigation` (v2) wins.
 
 **Q: Why a config object instead of a class?**
 
@@ -271,7 +271,7 @@ const agent = new Agent({
   tools: [shell, fileRead],
 });
 // ContextCompression + ContextNavigation + ContextDelegation active.
-// Agent controls its own L0: compress, pin, update system prompt, search L1 history.
+// Agent controls its own L0: compress, pin, search L1 history.
 ```
 
 ### v2 — Class instance (power user)
@@ -401,7 +401,7 @@ new Agent({
 });
 ```
 
-**Behavior:** User's conversation manager is used for compression. `ToolResultCache` still handles tool result caching. No conflict.
+**Behavior:** User's conversation manager is used for compression. `ContextOffloader` still handles tool result caching. No conflict.
 
 ### v2: User provides both (deprecated)
 
@@ -479,7 +479,7 @@ interface ContextManagerConfig {
 | `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (originals appended to L1, then L0 gets summary or drop) |
 | `compression.strategy` | `"summarize"` | What replaces evicted messages in L0: `"summarize"` (condensed block) or `"truncate"` (removed entirely) |
 | `compression.protectedMessages` | `1` | Initial messages pinned in L0 (never evicted) |
-| `navigation` | enabled (agentic) | `ContextNavigation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
+| `navigation` | enabled (agentic) | `ContextNavigation` plugin config (transcript reads). Set to `false` to disable. Ignored in `"auto"`. |
 | `delegation` | enabled (agentic) | `ContextDelegation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
 
 ### What the strategy resolves to
@@ -522,7 +522,7 @@ new Agent({ contextManagement: cm })
 ```
 New transcript capability           → lives in ContextCompression (writes) or ContextNavigation (reads)
 New tool result behavior            → lives in ToolResultCache
-New compression hook/heuristic      → lives in ContextCompression
+New compression strategy/heuristic  → lives in ContextCompression
 New agentic browsing tool           → lives in ContextNavigation
 New delegation capability           → lives in ContextDelegation
 New config knob                     → gets a sensible default, preset users never see it
