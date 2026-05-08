@@ -35,7 +35,7 @@ Context management maps to a three-tier cache hierarchy. Every operation is move
 | **L1 — Transcript** | Append-only log of messages evicted from L0. When messages are compressed out of L0, the originals are appended to L1. Each message is written once — no duplication. | Low (retrieval tool call) | `ContextManager` storage (`FileStorage`, `S3Storage`, etc.) |
 | **L2 — Long-term memory** | Cross-session knowledge — archival memory, semantic search index, learned facts. Persists beyond the current session. | Higher (query + load from persistent storage) | Memory primitive, vector store, managed memory services |
 
-L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document.
+L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document. Whether L1 is pruned after extraction to L2 is a memory concern, not a context management concern. From this doc's perspective, the transcript is append-only and immutable for the session lifetime. The tool result cache is separate — short-lived and auto-evicting, not immutable.
 
 ---
 
@@ -43,7 +43,7 @@ L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure. When context pressure builds, L0 is compressed — evicted messages are appended to the transcript (L1) before removal from L0. The transcript is append-only, chronologically ordered, never edited. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
+Both strategies share the same infrastructure. When context pressure builds, L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context. In v2, evicted messages are also appended to the transcript (L1) before removal from L0 — the transcript is append-only, chronologically ordered, never edited.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
 
@@ -123,7 +123,7 @@ Under the hood, this wires up:
 
 | Component | What it does |
 |-----------|-------------|
-| **`ContextOffloader`** | Oversized tool results cached separately (short-lived, auto-evicting) via `AfterToolCallEvent` hook. Agent sees a truncated preview. Provides `retrieveToolResult` tool for on-demand access. Absorbed into `ContextCompression` in v2. |
+| **`ContextOffloader`** | Oversized tool results cached separately (short-lived, auto-evicting) via `AfterToolCallEvent` hook. Agent sees a truncated preview. Provides `retrieveToolResult` tool for on-demand access. Renamed to `ToolResultCache` in v2 (config key changes from `contextOffloader` to `toolResultCache`). |
 | **Proactive compression on conversation manager** | `BeforeModelCallEvent` hook checks L0 token usage against threshold. When exceeded, compresses older messages in L0. |
 | **Message protection** | Position-based pinning (`protectedMessages = 1` by default) ensures the task prompt is never evicted. |
 
@@ -153,15 +153,15 @@ Three changes:
 
 ### Plugin decomposition
 
-Each plugin has a single cohesive responsibility. Storage is configured at the `ContextManager` level and shared — `ContextCompression` writes the transcript, `ContextNavigation` and `memoryManager` read from it.
+Each plugin has a single cohesive responsibility. `ContextManager` owns shared infrastructure — storage (transcript), token estimation, and budget tracking. Plugins read from `ContextManager`: `ContextCompression` writes the transcript and checks budget for threshold triggers, `ContextNavigation` and `memoryManager` read from the transcript, `ContextDelegation` checks budget to decide context sharing.
 
 | Component | Domain | Tools | Mode |
 |-----------|--------|-------|------|
+| **`ContextManager`** | Token estimation + budget tracking | `getContextBudget` (agentic) | Infrastructure (always) |
 | **`ToolResultCache`** | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
 | **`ContextCompression`** | L0 writes — compression, pinning | `compressContext`, `pinMessage` (agentic) | Both |
 | **`ContextNavigation`** | L1 reads — transcript access | `getTranscript`, `searchTranscript` | Agentic only |
 | **`ContextDelegation`** | Context-aware child spawning | `delegateWithContext` | Agentic only |
-| `getContextBudget` | Inspect current L0 token usage | — | Agentic (standalone tool) |
 
 v2 introduces `OnContextOverflowEvent` — a new lifecycle event fired on context length errors, replacing the opaque retry logic in conversation managers. The SDK already normalizes these errors across all providers into `ContextWindowOverflowError` — this event just exposes that to plugins.
 
@@ -451,7 +451,7 @@ interface ContextManagerConfig {
   // ContextCompression plugin config
   compression?: {
     threshold?: number;                          // ratio of context window (0–1]; default: 0.7
-    strategy?: "truncate" | "summarize";         // default: "summarize"
+    strategy?: "truncate" | "summarize" | CompressionFn;  // default: "summarize"
     protectedMessages?: number;                  // default: 1
   } | false;
 
@@ -469,15 +469,15 @@ interface ContextManagerConfig {
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `storage` | `SandboxStorage` | Backs the transcript (L1). Evicted messages are appended here before compression removes them from L0. Shared across plugins — `ContextCompression` writes, `ContextNavigation` and `memoryManager` read. |
+| `storage` | `SandboxStorage` | Backs the transcript (L1). Shared across plugins. |
 | `strategy` | `"auto"` | Who controls L0: framework (`"auto"`) or agent (`"agentic"`) |
-| `tokenCountingStrategy` | `"auto"` | `"auto"` uses native provider API with heuristic fallback; `"heuristic"` always estimates |
+| `tokenCountingStrategy` | `"auto"` | Token estimation strategy owned by `ContextManager`. `"auto"` uses native provider API with heuristic fallback; `"heuristic"` always estimates. Plugins read token counts from `ContextManager`. |
 | `toolResultCache` | enabled | `ToolResultCache` plugin config. Set to `false` to disable. |
 | `toolResultCache.threshold` | TBD | Token count above which tool results are cached |
 | `toolResultCache.maxAge` | TBD | Auto-eviction time for cached tool results |
 | `compression` | enabled | `ContextCompression` plugin config. Set to `false` to disable. |
 | `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (originals appended to L1, then L0 gets summary or drop) |
-| `compression.strategy` | `"summarize"` | What replaces evicted messages in L0: `"summarize"` (condensed block) or `"truncate"` (removed entirely) |
+| `compression.strategy` | `"summarize"` | What replaces evicted messages in L0: `"summarize"` (condensed block), `"truncate"` (removed entirely), or a custom `CompressionFn` |
 | `compression.protectedMessages` | `1` | Initial messages pinned in L0 (never evicted) |
 | `navigation` | enabled (agentic) | `ContextNavigation` plugin config (transcript reads). Set to `false` to disable. Ignored in `"auto"`. |
 | `delegation` | enabled (agentic) | `ContextDelegation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
@@ -499,23 +499,6 @@ interface ContextManagerConfig {
   new ContextDelegation({ storage }),
 ]
 ```
-
-### Config object vs class instance
-
-```typescript
-// Config object (happy path — no import needed)
-new Agent({ contextManagement: "auto" })
-new Agent({ contextManagement: { strategy: "agentic", storage: new S3Storage(...) } })
-
-// Class instance (power users — lifecycle, cross-primitive access, testing)
-const cm = new ContextManager({ strategy: "agentic", storage: new S3Storage(...) });
-new Agent({ contextManagement: cm })
-```
-
-**Config object:** String shorthands work, zero ceremony, serializable, Agent brokers cross-primitive access.
-
-**Class instance:** Lifecycle hooks (`initialize()`, `dispose()`), direct access (`agent.contextManagement.storage`), testable, consistent with `conversationManager` pattern.
-
 
 ### How it grows
 
