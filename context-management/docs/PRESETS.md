@@ -38,9 +38,7 @@ Context management maps to a three-tier cache hierarchy. Every operation is move
 
 L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document. From this doc's perspective, L1 is append-only and immutable for the session lifetime. The tool result cache is separate — short-lived and auto-evicting, not immutable.
 
-L1 storage internals (cursors, batch files, archival) are described in Appendix E. This is an implementation detail and subject to change.
-
-**Open question:** For long-running agents, unbounded L1 growth may be a problem. A configurable cap (max tokens, max age) on `ContextManager` could bound L1 without coupling to memory. Deferred until someone hits the problem in practice.
+See Appendix E for L1 storage internals.
 
 ---
 
@@ -48,7 +46,7 @@ L1 storage internals (cursors, batch files, archival) are described in Appendix 
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure. When context pressure builds, the full messages array is batch-written to L1 (one file per batch, each message tagged with a turn ID), then L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
+Both strategies share the same infrastructure. When context pressure builds, messages are batch-written to L1, then L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
 
@@ -79,8 +77,6 @@ The framework manages L0 transparently. When context pressure builds, messages a
 > **Note:** `"agentic"` is experimental. It depends on research into whether models effectively use context management tools. `"auto"` ships first and is the primary focus.
 
 Everything `"auto"` does still happens — the agent *also* gets tools to actively manage its own L0. It can decide when to compress, what to protect from eviction, and browse evicted messages in L1.
-
-L1 is append-only — messages accumulate but are never edited. The agent's power is over L0 (what stays in the context window) and the start cursor (what's visible when reading L1).
 
 **Use cases:** Research agents and coding assistants that benefit from self-awareness about their context state. Long-running autonomous agents. Exploratory development where agent autonomy is the point. Parent agents in multi-agent orchestrations.
 
@@ -156,15 +152,15 @@ Three changes:
 
 ### Plugin decomposition
 
-Each plugin has a single cohesive responsibility. `ContextManager` owns shared infrastructure — storage, token estimation, budget tracking, and cursors. `ContextCompression` batch-writes messages to storage and checks budget for threshold triggers. `ContextNavigation` and `memoryManager` read from storage (scoped by cursor). `ContextDelegation` checks budget to decide context sharing.
+Each plugin has a single cohesive responsibility. `ContextManager` is not a plugin — it's the top-level class that the config resolves to. It owns shared infrastructure (storage, token estimation, budget tracking, cursors) and composes the plugins below. Plugins read from `ContextManager` rather than depending on each other.
 
-| Component | Domain | Tools | Mode |
-|-----------|--------|-------|------|
-| **`ContextManager`** | Token estimation + budget tracking | `getContextBudget` (agentic) | Infrastructure (always) |
-| **`ToolResultCache`** | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
-| **`ContextCompression`** | L0 writes — compression, pinning | `compressContext`, `pinMessage` (agentic) | Both |
-| **`ContextNavigation`** | Read from L1 (session history) | `getHistory`, `searchHistory` | Agentic only |
-| **`ContextDelegation`** | Context-aware child spawning | `delegateWithContext` | Agentic only |
+| Component | Role | Domain | Tools | Mode |
+|-----------|------|--------|-------|------|
+| **`ContextManager`** | Config resolver + shared infrastructure | Storage, token estimation, budget, cursors | `getContextBudget` (agentic) | Always |
+| **`ToolResultCache`** | Plugin | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
+| **`ContextCompression`** | Plugin | L0 writes — compression, pinning | `compressContext`, `pinMessage` (agentic) | Both |
+| **`ContextNavigation`** | Plugin | Read from L1 (session history) | `getHistory`, `searchHistory` | Agentic only |
+| **`ContextDelegation`** | Plugin | Context-aware child spawning | `delegateWithContext` | Agentic only |
 
 v2 introduces `OnContextOverflowEvent` — a new lifecycle event fired on context length errors, replacing the opaque retry logic in conversation managers. The SDK already normalizes these errors across all providers into `ContextWindowOverflowError` — this event just exposes that to plugins.
 
