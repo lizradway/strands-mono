@@ -5,8 +5,7 @@
 - [3. Presets](#3-presets)
 - [4. TypeScript v1](#4-typescript-v1)
 - [5. TypeScript v2](#5-typescript-v2)
-- [6. API Design](#6-api-design)
-- [7. Anticipated Questions](#7-anticipated-questions)
+- [6. Anticipated Questions](#6-anticipated-questions)
 - Appendix A: Code Examples
 - Appendix B: Alternatives Considered
 - Appendix C: Composition Edge Cases
@@ -33,7 +32,7 @@ Context management maps to a three-tier cache hierarchy. Every operation is move
 | Tier | What it is | Access cost | Backed by |
 |------|-----------|-------------|-----------|
 | **L0 — Context window** | `agent.messages` — what the model sees on every request. May contain summaries where originals were evicted. | Zero (already in context) | In-memory message list |
-| **L1 — Session snapshots** | Immutable snapshots of `messages` taken before eviction. Complete, lossless, chronologically sorted (UUID v7). When messages are compressed out of L0, the originals are preserved in a snapshot first. | Low (retrieval tool call) | `SessionManager` snapshots (`FileStorage`, `S3Storage`, etc.) |
+| **L1 — Transcript** | Append-only log of messages evicted from L0. When messages are compressed out of L0, the originals are appended to L1. Each message is written once — no duplication. | Low (retrieval tool call) | `ContextManager` storage (`FileStorage`, `S3Storage`, etc.) |
 | **L2 — Long-term memory** | Cross-session knowledge — archival memory, semantic search index, learned facts. Persists beyond the current session. | Higher (query + load from persistent storage) | Memory primitive, vector store, managed memory services |
 
 L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document.
@@ -44,17 +43,19 @@ L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure. When context pressure builds, the framework snapshots the full `messages` array to L1, then compresses L0 (summarize or drop). Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context. L1 is just prior snapshots — immutable, complete, chronologically sorted, never edited.
+Both strategies share the same infrastructure. When context pressure builds, L0 is compressed (summarize or drop). In v2, evicted messages are appended to the transcript (L1) before compression — the transcript is append-only, chronologically ordered, never edited. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
+
+The logic lives in plugins, not tools. Tools are agent-facing wrappers around plugin methods. In auto mode, the framework calls plugin methods via hooks (e.g., `ContextCompression.compress()` fires on threshold). In agentic mode, the same hooks still fire as a safety net, but tools are also registered so the agent can invoke the same methods proactively. The strategy controls which tools are exposed — not what logic exists.
 
 | | `"auto"` | `"agentic"` |
 |--|----------|-------------|
 | Framework compresses when threshold hit | Yes | Yes |
 | Framework caches oversized tool results | Yes | Yes |
 | Agent can recover truncated tool output | Yes (`retrieveToolResult`) | Yes |
-| Agent can read original messages from prior snapshots | No | Yes (`retrieveMessages`) |
-| Agent can search prior snapshots | No | Yes (`searchContext`) |
+| Agent can read from the transcript (L1) | No | Yes (`getTranscript`) |
+| Agent can search the transcript | No | Yes (`searchTranscript`) |
 | Agent can check its context budget | No | Yes (`getContextBudget`) |
 | Agent can trigger compression | No | Yes (`compressContext`) |
 | Agent can protect messages from eviction | No | Yes (`pinMessage`) |
@@ -65,7 +66,9 @@ Users who don't want presets can build custom context management using the same 
 
 ### `"auto"` — The framework decides
 
-The framework manages L0 transparently. When context pressure builds, a snapshot is taken (preserving the full messages array), then messages are summarized or dropped in L0. The agent doesn't know context management is happening — it just never hits a wall. The only tool exposed is `retrieveToolResult` for recovering truncated tool outputs.
+The framework manages L0 transparently. When context pressure builds, messages are summarized or dropped in L0. The agent doesn't know context management is happening — it just never hits a wall. The only tool exposed is `retrieveToolResult` for recovering truncated tool outputs.
+
+In v2, `ContextCompression` also writes evicted messages to the transcript (L1) before compression — enabling `ContextNavigation` and `memoryManager` to read from it.
 
 **Use cases:** Beginners who don't want to think about context yet. Production deployments where predictability matters more than autonomy. Cost-sensitive workloads at scale. Multi-agent systems where child agents need lightweight, hands-off management. Anyone who wants it to just not break.
 
@@ -73,15 +76,15 @@ The framework manages L0 transparently. When context pressure builds, a snapshot
 
 > **Note:** `"agentic"` is experimental. It depends on research into whether models effectively use context management tools. `"auto"` ships first and is the primary focus.
 
-Everything `"auto"` does still happens — the agent *also* gets tools to actively manage its own L0. It can decide when to compress, what to protect from eviction, modify the system prompt, and browse prior snapshots.
+Everything `"auto"` does still happens — the agent *also* gets tools to actively manage its own L0. It can decide when to compress, what to protect from eviction, modify the system prompt, and browse evicted messages in L1.
 
-Snapshots are never edited — they just accumulate. The agent's power is over L0: what stays in the context window.
+The transcript is append-only — evicted messages accumulate but are never edited. The agent's power is over L0: what stays in the context window.
 
 **Use cases:** Research agents and coding assistants that benefit from self-awareness about their context state. Long-running autonomous agents. Exploratory development where agent autonomy is the point. Parent agents in multi-agent orchestrations.
 
 ### Growth and ownership
 
-More strategies may be added as context management capabilities evolve. The Strands team owns these presets and reserves the right to make breaking changes to them — what a strategy resolves to underneath (which plugins, which defaults) can change between versions. Users who need stability should configure plugins directly rather than relying on preset internals.
+More strategies may be added as context management capabilities evolve. Per the [pay-for-play tenet](https://github.com/strands-agents/docs/blob/main/team/TENETS.md), the Strands team owns these presets and reserves the right to make breaking changes to them — what a strategy resolves to underneath (which plugins, which defaults) can change between versions. Users who need stability should configure plugins directly rather than relying on preset internals.
 
 Defaults for all preset configurations (thresholds, strategies, token limits) should be informed by benchmarking before shipping. No default should be set based on intuition alone.
 
@@ -102,11 +105,18 @@ const agent = new Agent({
   contextManagement: { strategy: "auto", storage: new S3Storage({ bucket: "my-session" }) },
 });
 
-// Disable tool result caching (compression only, no offloading)
+// Disable offloading (compression only)
 const agent = new Agent({
-  contextManagement: { strategy: "auto", toolResultCache: false },
+  contextManagement: { strategy: "auto", contextOffloader: false },
+});
+
+// Custom offloader threshold
+const agent = new Agent({
+  contextManagement: { strategy: "auto", contextOffloader: { threshold: 5000 } },
 });
 ```
+
+`contextManagement` accepts a string shorthand, a config object, or a `ContextManager` class instance — matching the `model` pattern. Config objects are the happy path (no imports, zero ceremony). Class instances are accepted for power users who need lifecycle hooks or direct storage access. The Agent resolves config into a `ContextManager` instance internally either way.
 
 In v1, the default is `undefined` (no context management). This avoids surprises on upgrade and gives us time to prove the behavior works before making it default.
 
@@ -114,9 +124,8 @@ Under the hood, this wires up:
 
 | Component | What it does |
 |-----------|-------------|
-| **`ContextOffloader` plugin** (existing) | Oversized tool results cached separately (short-lived, auto-evicting) via `AfterToolCallEvent` hook. Agent sees a truncated preview. Provides `retrieveToolResult` tool for on-demand access. Renamed to `ToolResultCache` in v2. |
-| **Proactive compression on conversation manager** | `BeforeModelCallEvent` hook checks L0 token usage against threshold. When exceeded, triggers a `SessionManager` snapshot (preserving full messages), then compresses older messages in L0. |
-| **`SessionManager`** | Owns session snapshots (L1). Immutable snapshots capture `messages` before eviction. Backed by `storage` (defaults to `SandboxStorage`). |
+| **`ContextOffloader`** | Oversized tool results cached separately (short-lived, auto-evicting) via `AfterToolCallEvent` hook. Agent sees a truncated preview. Provides `retrieveToolResult` tool for on-demand access. Renamed to `ToolResultCache` in v2. |
+| **Proactive compression on conversation manager** | `BeforeModelCallEvent` hook checks L0 token usage against threshold. When exceeded, compresses older messages in L0. |
 | **Message protection** | Position-based pinning (`protectedMessages = 1` by default) ensures the task prompt is never evicted. |
 
 ### Coexistence with `conversationManager`
@@ -141,54 +150,24 @@ const agent = new Agent({
 Three changes:
 1. **`"auto"` becomes the default** — every agent gets context management unless opted out
 2. **`"agentic"` ships** — agent-in-the-loop context management
-3. **`conversationManager` is deprecated** — its compression responsibility moves to `ContextCompression`; transcript ownership stays with `SessionManager`
-
-### The `contextManagement` primitive
-
-In v2, `contextManagement` takes two things: a **storage** (where L1 content lives) and a **strategy** (who manages context).
-
-```typescript
-// Default — auto strategy, SandboxStorage
-new Agent()
-
-// Explicit strategy
-new Agent({ contextManagement: "agentic" })
-
-// Explicit storage + strategy
-new Agent({
-  contextManagement: {
-    storage: new S3Storage({ bucket: "my-session" }),
-    strategy: "auto",
-  },
-})
-
-// Opt out
-new Agent({ contextManagement: false })
-```
-
-The string shorthand (`"auto"`, `"agentic"`) is sugar for `{ strategy: "auto", storage: new SandboxStorage() }`. Storage backs the `SessionManager` snapshots where originals are preserved before eviction.
-
-### Config object or class instance
-
-Both work — matching the `model` pattern. Config objects are the happy path (string shorthands, no imports, zero ceremony). Class instances are accepted for power users who need lifecycle hooks or direct storage access. The Agent resolves config into a `ContextManager` instance internally either way.
+3. **`conversationManager` is deprecated** — its compression responsibility moves to `ContextCompression`
 
 ### Plugin decomposition
 
-Each plugin has a single cohesive responsibility. `SessionManager` (existing) owns snapshot infrastructure that plugins read from.
+Each plugin has a single cohesive responsibility. Storage is configured at the `ContextManager` level and shared — `ContextCompression` writes the transcript, `ContextNavigation` and `memoryManager` read from it.
 
 | Component | Domain | Tools | Mode |
 |-----------|--------|-------|------|
-| **`SessionManager`** | Session snapshots (L1) | None | Infrastructure (always) |
 | **`ToolResultCache`** | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
-| **`ContextCompression`** | Write to L0; triggers snapshot before eviction | `compressContext`, `pinMessage` (all agentic) | Both |
-| **`ContextNavigation`** | Read/inspect context state + system prompt | `retrieveMessages`, `searchContext`, `getContextBudget`, `updateSystemPrompt` | Agentic only |
+| **`ContextCompression`** | Write to L0; writes evicted messages to transcript (L1) | `compressContext`, `pinMessage` (all agentic) | Both |
+| **`ContextNavigation`** | Read/inspect transcript + context state | `getTranscript`, `searchTranscript`, `getContextBudget`, `updateSystemPrompt` | Agentic only |
 | **`ContextDelegation`** | Context-aware child spawning | `delegateWithContext` | Agentic only |
 
 v2 introduces `OnContextOverflowEvent` — a new lifecycle event fired on context length errors, replacing the opaque retry logic in conversation managers. The SDK already normalizes these errors across all providers into `ContextWindowOverflowError` — this event just exposes that to plugins.
 
 ### `conversationManager` deprecation
 
-In v2, `ContextCompression` takes over compression decisions and `SessionManager` already owns persistence. Nothing left for `conversationManager`.
+In v2, `ContextCompression` takes over compression and transcript writing. Nothing left for `conversationManager`.
 
 **Deprecation path:**
 1. **v1 (coexist):** Both live side by side. No conflict.
@@ -197,43 +176,7 @@ In v2, `ContextCompression` takes over compression decisions and `SessionManager
 
 ---
 
-## 6. API Design
-
-### v1
-
-```typescript
-const agent = new Agent({ contextManagement: "auto" });
-```
-
-### v2
-
-```typescript
-// Default (auto strategy, InMemoryStorage)
-new Agent()
-
-// Strategy shorthand
-new Agent({ contextManagement: "agentic" })
-
-// Full config
-new Agent({
-  contextManagement: {
-    storage: new S3Storage({ bucket: "my-session" }),
-    strategy: "auto",
-    tokenCountingStrategy: "heuristic",
-    toolResultCache: { threshold: 5000 },
-    compression: { threshold: 0.8, strategy: "summarize", protectedMessages: 1 },
-  },
-})
-
-// Opt out
-new Agent({ contextManagement: false })
-```
-
-Full `ContextManagerConfig` interface, field defaults, and type resolution logic are in Appendix D.
-
----
-
-## 7. Anticipated Questions
+## 6. Anticipated Questions
 
 **Q: Why isn't `"auto"` the default in v1?**
 
@@ -261,7 +204,7 @@ Yes, with a deprecation warning. It still works — `contextManagement` takes pr
 
 **Q: How does Memory relate to context management?**
 
-Memory is a separate primitive (`memoryManager` parameter) with its own mode and storage — out of scope for this doc, covered by Thomas's Memory primitive design. `contextManager` owns L0 ↔ L1 (within-session); `memoryManager` owns L1 → L2 (cross-session knowledge extraction). The Agent brokers the connection — `memoryManager` gets read access to `contextManager`'s L1 snapshots for extraction. Users configure each independently.
+Memory is a separate primitive (`memoryManager` parameter) with its own mode and storage — out of scope for this doc, covered by Thomas's Memory primitive design. `contextManager` owns L0 ↔ L1 (within-session); `memoryManager` owns L1 → L2 (cross-session knowledge extraction). The Agent brokers the connection — `memoryManager` gets read access to `contextManager`'s transcript for extraction. Users configure each independently.
 
 ---
 
@@ -526,14 +469,14 @@ interface ContextManagerConfig {
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `storage` | `SandboxStorage` | Backs `SessionManager` snapshots (L1). Original messages are preserved here in immutable snapshots before eviction from L0. |
+| `storage` | `SandboxStorage` | Backs the transcript (L1). Evicted messages are appended here before compression removes them from L0. Shared across plugins — `ContextCompression` writes, `ContextNavigation` and `memoryManager` read. |
 | `strategy` | `"auto"` | Who controls L0: framework (`"auto"`) or agent (`"agentic"`) |
 | `tokenCountingStrategy` | `"auto"` | `"auto"` uses native provider API with heuristic fallback; `"heuristic"` always estimates |
 | `toolResultCache` | enabled | `ToolResultCache` plugin config. Set to `false` to disable. |
 | `toolResultCache.threshold` | TBD | Token count above which tool results are cached |
 | `toolResultCache.maxAge` | TBD | Auto-eviction time for cached tool results |
 | `compression` | enabled | `ContextCompression` plugin config. Set to `false` to disable. |
-| `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (originals move to snapshot, L0 gets summary or drop) |
+| `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (originals appended to L1, then L0 gets summary or drop) |
 | `compression.strategy` | `"summarize"` | What replaces evicted messages in L0: `"summarize"` (condensed block) or `"truncate"` (removed entirely) |
 | `compression.protectedMessages` | `1` | Initial messages pinned in L0 (never evicted) |
 | `navigation` | enabled (agentic) | `ContextNavigation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
@@ -542,20 +485,18 @@ interface ContextManagerConfig {
 ### What the strategy resolves to
 
 ```typescript
-// Both strategies always include:
-// - SessionManager (owns snapshots, backed by storage) — already exists on Agent
-// - ToolResultCache (caches oversized tool results, provides retrieveToolResult)
+// Storage is configured at the ContextManager level and passed to plugins
 
 "auto" → [
   new ToolResultCache({ ... }),
-  new ContextCompression({ sessionManager, ... }),
+  new ContextCompression({ storage, ... }),
 ]
 
 "agentic" → [
   new ToolResultCache({ ... }),
-  new ContextCompression({ sessionManager, ... }),
-  new ContextNavigation({ sessionManager }),
-  new ContextDelegation({ sessionManager }),
+  new ContextCompression({ storage, ... }),
+  new ContextNavigation({ storage }),
+  new ContextDelegation({ storage }),
 ]
 ```
 
@@ -579,7 +520,7 @@ new Agent({ contextManagement: cm })
 ### How it grows
 
 ```
-New snapshot/persistence capability → lives in SessionManager (infrastructure)
+New transcript capability           → lives in ContextCompression (writes) or ContextNavigation (reads)
 New tool result behavior            → lives in ToolResultCache
 New compression hook/heuristic      → lives in ContextCompression
 New agentic browsing tool           → lives in ContextNavigation
@@ -590,10 +531,10 @@ New plugin entirely                 → preset composes it automatically
 
 ### Compression strategies
 
-| Strategy | What stays in L0 | Prior snapshots (L1) |
+| Strategy | What stays in L0 | L1 |
 |----------|------------------|----------------------|
-| `"truncate"` | Messages removed entirely (skip protected) | Full messages preserved in snapshot |
-| `"summarize"` | Summary replaces evicted messages | Full messages preserved in snapshot |
+| `"truncate"` | Messages removed entirely (skip protected) | Originals appended to L1 |
+| `"summarize"` | Summary replaces evicted messages | Originals appended to L1 |
 
 ### conversationManager migration
 
