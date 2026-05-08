@@ -10,6 +10,7 @@
 - Appendix B: Alternatives Considered
 - Appendix C: Composition Edge Cases
 - Appendix D: Plugin & Strategy Details
+- Appendix E: L1 Storage Model (Implementation Detail)
 
 ---
 
@@ -32,10 +33,14 @@ Context management maps to a three-tier cache hierarchy. Every operation is move
 | Tier | What it is | Access cost | Backed by |
 |------|-----------|-------------|-----------|
 | **L0 — Context window** | `agent.messages` — what the model sees on every request. May contain summaries where originals were evicted. | Zero (already in context) | In-memory message list |
-| **L1 — Transcript** | Append-only log of messages evicted from L0. When messages are compressed out of L0, the originals are appended to L1. Each message is written once — no duplication. | Low (retrieval tool call) | `ContextManager` storage (`FileStorage`, `S3Storage`, etc.) |
+| **L1 — Session history** | Append-only log of messages. Before each summarization, the full `messages` array is batch-written to L1 (one file per batch). Each message has a turn ID in metadata. Messages are written once — no duplication. Logical views are achieved via cursors (start pointer into the log), not physical copies. | Low (retrieval tool call) | `ContextManager` storage (`FileStorage`, `S3Storage`, etc.) |
 | **L2 — Long-term memory** | Cross-session knowledge — archival memory, semantic search index, learned facts. Persists beyond the current session. | Higher (query + load from persistent storage) | Memory primitive, vector store, managed memory services |
 
-L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document. Whether L1 is pruned after extraction to L2 is a memory concern, not a context management concern. From this doc's perspective, the transcript is append-only and immutable for the session lifetime. The tool result cache is separate — short-lived and auto-evicting, not immutable.
+L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document. From this doc's perspective, L1 is append-only and immutable for the session lifetime. The tool result cache is separate — short-lived and auto-evicting, not immutable.
+
+L1 storage internals (cursors, batch files, archival) are described in Appendix E. This is an implementation detail and subject to change.
+
+**Open question:** For long-running agents, unbounded L1 growth may be a problem. A configurable cap (max tokens, max age) on `ContextManager` could bound L1 without coupling to memory. Deferred until someone hits the problem in practice.
 
 ---
 
@@ -43,7 +48,7 @@ L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure. When context pressure builds, L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context. In v2, evicted messages are also appended to the transcript (L1) before removal from L0 — the transcript is append-only, chronologically ordered, never edited.
+Both strategies share the same infrastructure. When context pressure builds, the full messages array is batch-written to L1 (one file per batch, each message tagged with a turn ID), then L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
 
@@ -56,8 +61,8 @@ The logic lives in plugins, not tools. Tools are agent-facing wrappers around pl
 | Agent can recover truncated tool output | Yes (`retrieveToolResult`) | Yes |
 | Agent can trigger compression | No | Yes (`compressContext`) |
 | Agent can protect messages from eviction | No | Yes (`pinMessage`) |
-| Agent can read from the transcript (L1) | No | Yes (`getTranscript`) |
-| Agent can search the transcript | No | Yes (`searchTranscript`) |
+| Agent can read from L1 | No | Yes (`getHistory`) |
+| Agent can search L1 | No | Yes (`searchHistory`) |
 | Agent can spawn context-aware children | No | Yes (`delegateWithContext`) |
 | Agent can check its context budget | No | Yes (`getContextBudget`) |
 
@@ -65,9 +70,7 @@ Users who don't want presets can build custom context management using the same 
 
 ### `"auto"` — The framework decides
 
-The framework manages L0 transparently. When context pressure builds, messages are summarized or dropped in L0. The agent doesn't know context management is happening — it just never hits a wall. The only tool exposed is `retrieveToolResult` for recovering truncated tool outputs.
-
-In v2, `ContextCompression` also writes evicted messages to the transcript (L1) before compression — enabling `ContextNavigation` and `memoryManager` to read from it.
+The framework manages L0 transparently. When context pressure builds, messages are batch-written to L1, then summarized or dropped in L0. The agent doesn't know context management is happening — it just never hits a wall. The only tool exposed is `retrieveToolResult` for recovering truncated tool outputs.
 
 **Use cases:** Beginners who don't want to think about context yet. Production deployments where predictability matters more than autonomy. Cost-sensitive workloads at scale. Multi-agent systems where child agents need lightweight, hands-off management. Anyone who wants it to just not break.
 
@@ -77,7 +80,7 @@ In v2, `ContextCompression` also writes evicted messages to the transcript (L1) 
 
 Everything `"auto"` does still happens — the agent *also* gets tools to actively manage its own L0. It can decide when to compress, what to protect from eviction, and browse evicted messages in L1.
 
-The transcript is append-only — evicted messages accumulate but are never edited. The agent's power is over L0: what stays in the context window.
+L1 is append-only — messages accumulate but are never edited. The agent's power is over L0 (what stays in the context window) and the start cursor (what's visible when reading L1).
 
 **Use cases:** Research agents and coding assistants that benefit from self-awareness about their context state. Long-running autonomous agents. Exploratory development where agent autonomy is the point. Parent agents in multi-agent orchestrations.
 
@@ -153,21 +156,21 @@ Three changes:
 
 ### Plugin decomposition
 
-Each plugin has a single cohesive responsibility. `ContextManager` owns shared infrastructure — storage (transcript), token estimation, and budget tracking. Plugins read from `ContextManager`: `ContextCompression` writes the transcript and checks budget for threshold triggers, `ContextNavigation` and `memoryManager` read from the transcript, `ContextDelegation` checks budget to decide context sharing.
+Each plugin has a single cohesive responsibility. `ContextManager` owns shared infrastructure — storage, token estimation, budget tracking, and cursors. `ContextCompression` batch-writes messages to storage and checks budget for threshold triggers. `ContextNavigation` and `memoryManager` read from storage (scoped by cursor). `ContextDelegation` checks budget to decide context sharing.
 
 | Component | Domain | Tools | Mode |
 |-----------|--------|-------|------|
 | **`ContextManager`** | Token estimation + budget tracking | `getContextBudget` (agentic) | Infrastructure (always) |
 | **`ToolResultCache`** | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
 | **`ContextCompression`** | L0 writes — compression, pinning | `compressContext`, `pinMessage` (agentic) | Both |
-| **`ContextNavigation`** | L1 reads — transcript access | `getTranscript`, `searchTranscript` | Agentic only |
+| **`ContextNavigation`** | Read from L1 (session history) | `getHistory`, `searchHistory` | Agentic only |
 | **`ContextDelegation`** | Context-aware child spawning | `delegateWithContext` | Agentic only |
 
 v2 introduces `OnContextOverflowEvent` — a new lifecycle event fired on context length errors, replacing the opaque retry logic in conversation managers. The SDK already normalizes these errors across all providers into `ContextWindowOverflowError` — this event just exposes that to plugins.
 
 ### `conversationManager` deprecation
 
-In v2, `ContextCompression` takes over compression and transcript writing. Nothing left for `conversationManager`.
+In v2, `ContextCompression` takes over compression and L1 writing. Nothing left for `conversationManager`.
 
 **Deprecation path:**
 1. **v1 (coexist):** Both live side by side. No conflict.
@@ -204,7 +207,7 @@ Yes, with a deprecation warning. It still works — `contextManagement` takes pr
 
 **Q: How does Memory relate to context management?**
 
-Memory is a separate primitive (`memoryManager` parameter) with its own mode and storage — out of scope for this doc, covered by Thomas's Memory primitive design. `contextManager` owns L0 ↔ L1 (within-session); `memoryManager` owns L1 → L2 (cross-session knowledge extraction). The Agent brokers the connection — `memoryManager` gets read access to `contextManager`'s transcript for extraction. Users configure each independently.
+Memory is a separate primitive (`memoryManager` parameter) with its own mode and storage — out of scope for this doc, covered by Thomas's Memory primitive design. `contextManager` owns L0 ↔ L1 (within-session); `memoryManager` owns L1 → L2 (cross-session knowledge extraction). The Agent brokers the connection — `memoryManager` gets read access to `contextManager`'s L1 for extraction. Users configure each independently.
 
 ---
 
@@ -469,17 +472,17 @@ interface ContextManagerConfig {
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `storage` | `SandboxStorage` | Backs the transcript (L1). Shared across plugins. |
+| `storage` | `SandboxStorage` | Backs L1. Messages batch-written before each summarization (one file per batch). Shared across plugins. |
 | `strategy` | `"auto"` | Who controls L0: framework (`"auto"`) or agent (`"agentic"`) |
 | `tokenCountingStrategy` | `"auto"` | Token estimation strategy owned by `ContextManager`. `"auto"` uses native provider API with heuristic fallback; `"heuristic"` always estimates. Plugins read token counts from `ContextManager`. |
 | `toolResultCache` | enabled | `ToolResultCache` plugin config. Set to `false` to disable. |
 | `toolResultCache.threshold` | TBD | Token count above which tool results are cached |
 | `toolResultCache.maxAge` | TBD | Auto-eviction time for cached tool results |
 | `compression` | enabled | `ContextCompression` plugin config. Set to `false` to disable. |
-| `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (originals appended to L1, then L0 gets summary or drop) |
+| `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (messages batch-written to L1, then L0 gets summary or drop) |
 | `compression.strategy` | `"summarize"` | What replaces evicted messages in L0: `"summarize"` (condensed block), `"truncate"` (removed entirely), or a custom `CompressionFn` |
 | `compression.protectedMessages` | `1` | Initial messages pinned in L0 (never evicted) |
-| `navigation` | enabled (agentic) | `ContextNavigation` plugin config (transcript reads). Set to `false` to disable. Ignored in `"auto"`. |
+| `navigation` | enabled (agentic) | `ContextNavigation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
 | `delegation` | enabled (agentic) | `ContextDelegation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
 
 ### What the strategy resolves to
@@ -503,7 +506,7 @@ interface ContextManagerConfig {
 ### How it grows
 
 ```
-New transcript capability           → lives in ContextCompression (writes) or ContextNavigation (reads)
+New L1 capability           → lives in ContextCompression (writes) or ContextNavigation (reads)
 New tool result behavior            → lives in ToolResultCache
 New compression strategy/heuristic  → lives in ContextCompression
 New agentic browsing tool           → lives in ContextNavigation
@@ -516,8 +519,8 @@ New plugin entirely                 → preset composes it automatically
 
 | Strategy | What stays in L0 | L1 |
 |----------|------------------|----------------------|
-| `"truncate"` | Messages removed entirely (skip protected) | Originals appended to L1 |
-| `"summarize"` | Summary replaces evicted messages | Originals appended to L1 |
+| `"truncate"` | Messages removed entirely (skip protected) | Full messages array batch-written before removal |
+| `"summarize"` | Summary replaces evicted messages | Full messages array batch-written before summarization |
 
 ### conversationManager migration
 
@@ -535,6 +538,65 @@ if (typeof input === "string")              → new ContextManager({ strategy: i
 if (input instanceof ContextManager)     → use directly
 if (typeof input === "object")              → new ContextManager(input)
 if (input === false)                        → null (disabled)
+```
+
+</details>
+
+---
+
+<details>
+<summary><b>Appendix E: L1 Storage Model (Implementation Detail)</b></summary>
+
+> **Note:** This is an implementation detail and subject to change. The external behavior (append-only L1, cursor-scoped reads) is stable; the physical storage layout is not.
+
+### Physical storage
+
+Messages are batch-written to L1 before each summarization. Each batch is a single file containing the full `messages` array at that point. Each message carries a **turn ID** in metadata — a monotonically increasing identifier assigned per agent turn.
+
+```
+storage/
+  batch-001.json   # messages from turns 1–25 (written before first summarization)
+  batch-002.json   # messages from turns 1–50 (written before second summarization)
+  ...
+```
+
+Messages are written once. A message with a given turn ID appears in the batch where it was first persisted. Later batches contain only messages with turn IDs greater than the previous batch's max.
+
+### Cursors
+
+A **cursor** is a start pointer into the flat log — a turn ID. Everything from that turn forward is the agent's visible L1.
+
+Cursors are stored in:
+- **Agent state** (in-memory) — fast access during the session
+- **Session metadata** (persisted) — survives crashes and session resumption
+
+### Relationship to snapshots
+
+Snapshots already exist in the SDK (`SessionManager`) and continue to work as-is — full copies of the messages array at a point in time. In addition to snapshots, the cursor is stored alongside as session metadata. Snapshots handle session persistence/resumption; cursors handle the L1 visibility window. They coexist independently.
+
+### Archival
+
+For long-running agents, the start cursor can be moved forward. Messages before the cursor are **archived** — still physically present in L1, but invisible to `searchHistory` and `getHistory`. Memory can still read the full log (ignores cursors).
+
+This provides a "sliding window" over L1 without deleting anything:
+
+```
+[archived | ← start cursor → | visible to agent ]
+[turn 1–50 |                  | turn 51–200      ]
+```
+
+### Read behavior
+
+- **`getHistory`** — returns messages from the start cursor forward. Supports pagination.
+- **`searchHistory`** — keyword search from the start cursor forward. Archived messages are not searched.
+- **`memoryManager`** — reads the full log (ignores cursors) for L1 → L2 extraction.
+
+### Deletion (escape hatch)
+
+`ContextManager` exposes a `deleteMessages(turnIds)` method that physically removes specific messages from L1 by turn ID. Only archived messages (behind the start cursor) can be deleted — visible messages cannot. Use cases: privacy/compliance (user requests data deletion), storage reclamation for long-running agents after memory has extracted what it needs.
+
+```typescript
+await agent.contextManagement.deleteMessages(["turn_12", "turn_13", "turn_14"]);
 ```
 
 </details>
