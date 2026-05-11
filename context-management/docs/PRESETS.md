@@ -114,7 +114,7 @@ const agent = new Agent({
 });
 ```
 
-`contextManager` accepts a string shorthand or a config object in v1. Class instances (`ContextManager`) are introduced in v2 for power users who need lifecycle hooks or direct storage access. The Agent resolves the input into a `ContextManager` instance internally either way.
+`contextManager` accepts a string shorthand or a config object in v1. The Agent resolves the input directly into plugins and tools — no intermediate class. The `ContextManager` class (owning token estimation, budget, cursors) is introduced in v2 for power users who need lifecycle hooks or direct storage access.
 
 
 In v1, the default is `undefined` (no context management). This avoids surprises on upgrade and gives us time to prove the behavior works before making it default.
@@ -192,7 +192,7 @@ Deduplication detects by type and skips the preset's version. User's `ToolResult
 
 **Q: Why a config object instead of a class?**
 
-Both are accepted — matching the `model` pattern. Config objects are the happy path (string shorthands work, no imports needed, zero ceremony). Class instances are accepted for power users who need lifecycle hooks, direct storage access, or testability. The Agent resolves config into a `ContextManager` instance internally either way.
+In v1, only string shorthands and config objects are accepted — no imports needed, zero ceremony. In v2, class instances (`ContextManager`) are also accepted for power users who need lifecycle hooks, direct storage access, or testability — matching the `model` pattern. In v1 the Agent resolves config directly into plugins/tools; in v2 it resolves to a `ContextManager` instance that owns token estimation, budget, and cursors.
 
 **Q: What if models don't effectively use context management tools?**
 
