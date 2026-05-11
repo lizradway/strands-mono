@@ -10,7 +10,7 @@
 - Appendix B: Alternatives Considered
 - Appendix C: Composition Edge Cases
 - Appendix D: Plugin & Strategy Details
-- Appendix E: L1 Storage Model (Implementation Detail)
+- Appendix E: L1 Storage Model
 
 ---
 
@@ -18,7 +18,7 @@
 
 Every non-trivial agent eventually hits context limits. Strands already provides the building blocks to handle this — externalization, compression, conversation managers, hooks — but today these are independent extension points that users must discover, configure, and compose themselves. The SDK covers the 20% case (power users who want full control) but not the 80% case (developers who want context management to just work).
 
-As the [context management roadmap](./ROADMAP.md) ships more capabilities, this gap widens. Each feature is another plugin or tool to wire up. The Strands [tenets](https://github.com/strands-agents/docs/blob/main/team/TENETS.md) call for **the obvious path to be the happy path** and for **simple things to be simple**. Context management should be a one-liner, not a composition exercise.
+As context management ships more capabilities, this gap widens. Each feature is another plugin or tool to wire up. The Strands [tenets](https://github.com/strands-agents/docs/blob/main/team/TENETS.md) call for **the obvious path to be the happy path** and for **simple things to be simple**. Context management should be a one-liner, not a composition exercise.
 
 This design proposes opinionated defaults via a single `contextManagement` parameter on `Agent` — backed by the same extension points that power users already configure manually, but with sensible choices pre-made for everyone else.
 
@@ -26,14 +26,14 @@ This design proposes opinionated defaults via a single `contextManagement` param
 
 ## 2. The Cache Hierarchy
 
-> **Note:** This hierarchy is presented here for context and understanding — it is not a formal proposal. Thomas's Memory primitive design will formalize the tiered model and define the boundaries between tiers.
+> **Note:** This doc covers L0 ↔ L1 (within-session context management). L2 and anything memory-related is out of scope — see Thomas's Memory primitive design. References to memory in this doc are included only for background.
 
 Context management maps to a three-tier cache hierarchy. Every operation is movement between tiers.
 
 | Tier | What it is | Access cost | Backed by |
 |------|-----------|-------------|-----------|
 | **L0 — Context window** | `agent.messages` — what the model sees on every request. May contain summaries where originals were evicted. | Zero (already in context) | In-memory message list |
-| **L1 — Session history** | Append-only log of messages. Before each summarization, the full `messages` array is batch-written to L1 (one file per batch). Each message has a turn ID in metadata. Messages are written once — no duplication. Logical views are achieved via cursors (start pointer into the log), not physical copies. | Low (retrieval tool call) | `ContextManager` storage (`FileStorage`, `S3Storage`, etc.) |
+| **L1 — Session history** | Append-only log of messages. Only written when there's a consumer (agentic mode or `memoryManager`). Messages are batch-written to L1 before each summarization. See Appendix E for storage internals. | Low (retrieval tool call) | `ContextManager` storage (`FileStorage`, `S3Storage`, etc.) |
 | **L2 — Long-term memory** | Cross-session knowledge — archival memory, semantic search index, learned facts. Persists beyond the current session. | Higher (query + load from persistent storage) | Memory primitive, vector store, managed memory services |
 
 L2 (long-term memory) is a separate primitive (`memoryManager`) — out of scope for this document. From this doc's perspective, L1 is append-only and immutable for the session lifetime. The tool result cache is separate — short-lived and auto-evicting, not immutable.
@@ -46,7 +46,7 @@ See Appendix E for L1 storage internals.
 
 The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
-Both strategies share the same infrastructure. When context pressure builds, messages are batch-written to L1, then L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
+Both strategies share the same infrastructure. When context pressure builds, L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
 
 The difference: in **auto**, the agent interacts with content. In **agentic**, the agent reasons about its own context.
 
@@ -64,11 +64,11 @@ The logic lives in plugins, not tools. Tools are agent-facing wrappers around pl
 | Agent can spawn context-aware children | No | Yes (`delegateWithContext`) |
 | Agent can check its context budget | No | Yes (`getContextBudget`) |
 
-Users who don't want presets can build custom context management using the same infrastructure. Token tracking ([#1197](https://github.com/strands-agents/sdk-python/issues/1197)), message metadata ([#1532](https://github.com/strands-agents/sdk-python/issues/1532)), token estimation ([#1294](https://github.com/strands-agents/sdk-python/issues/1294)), and context limit ([#1295](https://github.com/strands-agents/sdk-python/issues/1295)) together give users everything they need to write their own `BeforeModelCallEvent` hooks with custom policies. The presets are opinionated compositions of these primitives, not the only way to use them.
+Users who don't want presets can build custom context management using the same infrastructure. Token tracking, message metadata, token estimation, and context limit primitives together give users everything they need to write their own `BeforeModelCallEvent` hooks with custom policies. The presets are opinionated compositions of these primitives, not the only way to use them.
 
 ### `"auto"` — The framework decides
 
-The framework manages L0 transparently. When context pressure builds, messages are batch-written to L1, then summarized or dropped in L0. The agent doesn't know context management is happening — it just never hits a wall. The only tool exposed is `retrieveToolResult` for recovering truncated tool outputs.
+The framework manages L0 transparently. When context pressure builds, messages are summarized or dropped in L0. No L1 writes happen in auto mode — L1 is only written when there's a consumer (agentic mode or `memoryManager`). The agent doesn't know context management is happening — it just never hits a wall. The only tool exposed is `retrieveToolResult` for recovering truncated tool outputs.
 
 **Use cases:** Beginners who don't want to think about context yet. Production deployments where predictability matters more than autonomy. Cost-sensitive workloads at scale. Multi-agent systems where child agents need lightweight, hands-off management. Anyone who wants it to just not break.
 
@@ -115,6 +115,7 @@ const agent = new Agent({
 ```
 
 `contextManagement` accepts a string shorthand, a config object, or a `ContextManager` class instance — matching the `model` pattern. Config objects are the happy path (no imports, zero ceremony). Class instances are accepted for power users who need lifecycle hooks or direct storage access. The Agent resolves config into a `ContextManager` instance internally either way.
+
 
 In v1, the default is `undefined` (no context management). This avoids surprises on upgrade and gives us time to prove the behavior works before making it default.
 
@@ -434,7 +435,10 @@ new Agent({
 ### `ContextManagerConfig`
 
 ```typescript
-type ContextManagerInput = "auto" | "agentic" | ContextManagerConfig | ContextManager | false;
+// On AgentConfig (inline union, no separate type alias — matches model pattern)
+interface AgentConfig {
+  contextManagement?: "auto" | "agentic" | ContextManagerConfig | ContextManager | false;
+}
 
 interface ContextManagerConfig {
   storage?: Storage;                             // default: SandboxStorage
@@ -475,7 +479,7 @@ interface ContextManagerConfig {
 | `toolResultCache.threshold` | TBD | Token count above which tool results are cached |
 | `toolResultCache.maxAge` | TBD | Auto-eviction time for cached tool results |
 | `compression` | enabled | `ContextCompression` plugin config. Set to `false` to disable. |
-| `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression (messages batch-written to L1, then L0 gets summary or drop) |
+| `compression.threshold` | `0.7` | Ratio of context window (0–1] that triggers compression. If L1 has a consumer, messages are batch-written before compression. |
 | `compression.strategy` | `"summarize"` | What replaces evicted messages in L0: `"summarize"` (condensed block), `"truncate"` (removed entirely), or a custom `CompressionFn` |
 | `compression.protectedMessages` | `1` | Initial messages pinned in L0 (never evicted) |
 | `navigation` | enabled (agentic) | `ContextNavigation` plugin config. Set to `false` to disable. Ignored in `"auto"`. |
@@ -513,10 +517,10 @@ New plugin entirely                 → preset composes it automatically
 
 ### Compression strategies
 
-| Strategy | What stays in L0 | L1 |
-|----------|------------------|----------------------|
-| `"truncate"` | Messages removed entirely (skip protected) | Full messages array batch-written before removal |
-| `"summarize"` | Summary replaces evicted messages | Full messages array batch-written before summarization |
+| Strategy | What stays in L0 |
+|----------|------------------|
+| `"truncate"` | Oldest messages dropped (sliding window, skip protected) |
+| `"summarize"` | Summary replaces evicted messages |
 
 ### conversationManager migration
 
@@ -527,13 +531,13 @@ New plugin entirely                 → preset composes it automatically
 | `NullConversationManager` | `false` |
 | Custom subclass | `{ compression: { strategy: customFn } }` |
 
-### Type resolution
+### Type resolution (in Agent constructor)
 
 ```typescript
-if (typeof input === "string")              → new ContextManager({ strategy: input })
-if (input instanceof ContextManager)     → use directly
-if (typeof input === "object")              → new ContextManager(input)
-if (input === false)                        → null (disabled)
+if (typeof contextManagement === "string")              → new ContextManager({ strategy: contextManagement })
+if (contextManagement instanceof ContextManager)        → use directly
+if (typeof contextManagement === "object")              → new ContextManager(contextManagement)
+if (contextManagement === false)                        → null (disabled)
 ```
 
 </details>
@@ -541,22 +545,22 @@ if (input === false)                        → null (disabled)
 ---
 
 <details>
-<summary><b>Appendix E: L1 Storage Model (Implementation Detail)</b></summary>
+<summary><b>Appendix E: L1 Storage Model</b></summary>
 
 > **Note:** This is an implementation detail and subject to change. The external behavior (append-only L1, cursor-scoped reads) is stable; the physical storage layout is not.
 
 ### Physical storage
 
-Messages are batch-written to L1 before each summarization. Each batch is a single file containing the full `messages` array at that point. Each message carries a **turn ID** in metadata — a monotonically increasing identifier assigned per agent turn.
+When L1 has a consumer (agentic mode or `memoryManager`), messages are batch-written to L1 before each summarization. Each batch is a single file containing the full `messages` array at that point. Each message carries a **turn ID** in metadata — a monotonically increasing identifier assigned per agent turn. In auto mode without `memoryManager`, no L1 writes occur.
 
 ```
 storage/
   batch-001.json   # messages from turns 1–25 (written before first summarization)
-  batch-002.json   # messages from turns 1–50 (written before second summarization)
+  batch-002.json   # messages from turns 26–50 (written before second summarization)
   ...
 ```
 
-Messages are written once. A message with a given turn ID appears in the batch where it was first persisted. Later batches contain only messages with turn IDs greater than the previous batch's max.
+Messages are written once. Each batch contains only new messages since the previous batch.
 
 ### Cursors
 
