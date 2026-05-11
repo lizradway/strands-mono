@@ -20,7 +20,7 @@ Every non-trivial agent eventually hits context limits. Strands already provides
 
 As context management ships more capabilities, this gap widens. Each feature is another plugin or tool to wire up. The Strands [tenets](https://github.com/strands-agents/docs/blob/main/team/TENETS.md) call for **the obvious path to be the happy path** and for **simple things to be simple**. Context management should be a one-liner, not a composition exercise.
 
-This design proposes opinionated defaults via a single `contextManagement` parameter on `Agent` — backed by the same extension points that power users already configure manually, but with sensible choices pre-made for everyone else.
+This design proposes opinionated defaults via a single `contextManager` parameter on `Agent` — backed by the same extension points that power users already configure manually, but with sensible choices pre-made for everyone else.
 
 ---
 
@@ -44,7 +44,7 @@ See Appendix E for L1 storage internals.
 
 ## 3. Presets
 
-The `contextManagement` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
+The `contextManager` parameter accepts a **strategy** that determines who controls L0 — what stays in the context window and when things get compressed to L1.
 
 Both strategies share the same infrastructure. When context pressure builds, L0 is compressed. Oversized tool results are cached separately, and `retrieveToolResult` is always available so the agent can recover truncated outputs without reasoning about context.
 
@@ -90,31 +90,31 @@ Defaults for all preset configurations (thresholds, strategies, token limits) sh
 
 ## 4. TypeScript v1
 
-Ships `contextManagement: "auto"` as an opt-in parameter.
+Ships `contextManager: "auto"` as an opt-in parameter.
 
 ### What ships
 
 ```typescript
 // Minimal — defaults to SandboxStorage
-const agent = new Agent({ contextManagement: "auto" });
+const agent = new Agent({ contextManager: "auto" });
 
 // Explicit storage
 const agent = new Agent({
-  contextManagement: { strategy: "auto", storage: new S3Storage({ bucket: "my-session" }) },
+  contextManager: { strategy: "auto", storage: new S3Storage({ bucket: "my-session" }) },
 });
 
 // Disable offloading (compression only)
 const agent = new Agent({
-  contextManagement: { strategy: "auto", contextOffloader: false },
+  contextManager: { strategy: "auto", contextOffloader: false },
 });
 
 // Custom offloader threshold
 const agent = new Agent({
-  contextManagement: { strategy: "auto", contextOffloader: { threshold: 5000 } },
+  contextManager: { strategy: "auto", contextOffloader: { threshold: 5000 } },
 });
 ```
 
-`contextManagement` accepts a string shorthand, a config object, or a `ContextManager` class instance — matching the `model` pattern. Config objects are the happy path (no imports, zero ceremony). Class instances are accepted for power users who need lifecycle hooks or direct storage access. The Agent resolves config into a `ContextManager` instance internally either way.
+`contextManager` accepts a string shorthand or a config object in v1. Class instances (`ContextManager`) are introduced in v2 for power users who need lifecycle hooks or direct storage access. The Agent resolves the input into a `ContextManager` instance internally either way.
 
 
 In v1, the default is `undefined` (no context management). This avoids surprises on upgrade and gives us time to prove the behavior works before making it default.
@@ -133,11 +133,11 @@ In v1, the user's conversation manager is respected. The preset configures proac
 
 ```typescript
 // Uses default conversation manager with proactive compression
-const agent = new Agent({ contextManagement: "auto" });
+const agent = new Agent({ contextManager: "auto" });
 
 // Uses user's conversation manager, still gets proactive compression
 const agent = new Agent({
-  contextManagement: "auto",
+  contextManager: "auto",
   conversationManager: new SummarizingConversationManager(),
 });
 ```
@@ -158,7 +158,7 @@ Each plugin has a single cohesive responsibility. `ContextManager` is not a plug
 | Component | Role | Domain | Tools | Mode |
 |-----------|------|--------|-------|------|
 | **`ContextManager`** | Config resolver + shared infrastructure | Storage, token estimation, budget, cursors | `getContextBudget` (agentic) | Always |
-| **`ToolResultCache`** | Plugin | Cache oversized tool results | `retrieveToolResult` | Both (always available) |
+| **`ToolResultCache`** | Plugin | Cache oversized tool results | `retrieveToolResult` | Both |
 | **`ContextCompression`** | Plugin | L0 writes — compression, pinning | `compressContext`, `pinMessage` (agentic) | Both |
 | **`ContextNavigation`** | Plugin | Read from L1 (session history) | `getHistory`, `searchHistory` | Agentic only |
 | **`ContextDelegation`** | Plugin | Context-aware child spawning | `delegateWithContext` | Agentic only |
@@ -171,7 +171,7 @@ In v2, `ContextCompression` takes over compression and L1 writing. Nothing left 
 
 **Deprecation path:**
 1. **v1 (coexist):** Both live side by side. No conflict.
-2. **v2 (deprecate):** Deprecation warning emitted. `contextManagement` takes precedence if both are set.
+2. **v2 (deprecate):** Deprecation warning emitted. `contextManager` takes precedence if both are set.
 3. **v3 (remove):** `conversationManager` removed from the constructor type.
 
 ---
@@ -184,7 +184,7 @@ We need to prove the behavior first. v1 is opt-in so we can validate with early 
 
 **Q: What happens when users upgrade from v1 to v2?**
 
-Two changes: (1) `"auto"` becomes the default — agents that didn't set `contextManagement` now get it automatically. Users who don't want this can set `contextManagement: false`. (2) Internals upgrade — `ToolResultCache` replaces `ContextOffloader`, `ContextCompression` replaces conversation manager compression — same external behavior.
+Two changes: (1) `"auto"` becomes the default — agents that didn't set `contextManager` now get it automatically. Users who don't want this can set `contextManager: false`. (2) Internals upgrade — `ToolResultCache` replaces `ContextOffloader`, `ContextCompression` replaces conversation manager compression — same external behavior.
 
 **Q: What if the user provides their own plugin?**
 
@@ -200,7 +200,7 @@ That's why `"agentic"` is experimental. `"auto"` ships first with proven framewo
 
 **Q: Can users stay on `conversationManager` in v2?**
 
-Yes, with a deprecation warning. It still works — `contextManagement` takes precedence if both are set. Removal happens in v3.
+Yes, with a deprecation warning. It still works — `contextManager` takes precedence if both are set. Removal happens in v3.
 
 **Q: How does Memory relate to context management?**
 
@@ -217,7 +217,7 @@ Memory is a separate primitive (`memoryManager` parameter) with its own mode and
 import { Agent } from "@strands-agents/sdk";
 
 const agent = new Agent({
-  contextManagement: "auto",
+  contextManager: "auto",
   tools: [shell, fileRead],
 });
 ```
@@ -228,7 +228,7 @@ const agent = new Agent({
 import { Agent } from "@strands-agents/sdk";
 
 const agent = new Agent({
-  contextManagement: "auto",
+  contextManager: "auto",
   conversationManager: new SummarizingConversationManager(),
   tools: [shell, fileRead],
 });
@@ -252,7 +252,7 @@ import { Agent } from "@strands-agents/sdk";
 import { S3Storage } from "@strands-agents/storage-s3";
 
 const agent = new Agent({
-  contextManagement: {
+  contextManager: {
     storage: new S3Storage({ bucket: "my-session" }),
     strategy: "auto",
     compression: { threshold: 0.8, protectedMessages: 2 },
@@ -267,7 +267,7 @@ const agent = new Agent({
 import { Agent } from "@strands-agents/sdk";
 
 const agent = new Agent({
-  contextManagement: "agentic",
+  contextManager: "agentic",
   tools: [shell, fileRead],
 });
 // ContextCompression + ContextNavigation + ContextDelegation active.
@@ -286,7 +286,7 @@ const cm = new ContextManager({
 });
 
 const agent = new Agent({
-  contextManagement: cm,
+  contextManager: cm,
   tools: [shell, fileRead],
 });
 
@@ -301,7 +301,7 @@ await cm.dispose(); // Cleanup when done
 import { Agent } from "@strands-agents/sdk";
 
 const agent = new Agent({
-  contextManagement: false,
+  contextManager: false,
   tools: [shell, fileRead],
 });
 ```
@@ -316,7 +316,7 @@ const agent = new Agent({
 
 // After (v2 — migrated)
 const agent = new Agent({
-  contextManagement: { compression: { strategy: "summarize" } },
+  contextManager: { compression: { strategy: "summarize" } },
 });
 ```
 
@@ -331,7 +331,7 @@ const agent = new Agent({
 
 ```typescript
 new Agent({
-  contextManagement: new ContextManager({
+  contextManager: new ContextManager({
     storage: new S3Storage(...),
     strategy: "agentic",
   }),
@@ -396,7 +396,7 @@ Note: We adopted the `ContextManager` name but with a different architecture —
 
 ```typescript
 new Agent({
-  contextManagement: "auto",
+  contextManager: "auto",
   conversationManager: new SummarizingConversationManager(),
 });
 ```
@@ -407,18 +407,18 @@ new Agent({
 
 ```typescript
 new Agent({
-  contextManagement: "agentic",
+  contextManager: "agentic",
   conversationManager: new SummarizingConversationManager(),
 });
 ```
 
-**Behavior:** `contextManagement` takes precedence. Deprecation warning emitted.
+**Behavior:** `contextManager` takes precedence. Deprecation warning emitted.
 
 ### v2: User provides overlapping ContextCompression
 
 ```typescript
 new Agent({
-  contextManagement: "agentic",
+  contextManager: "agentic",
   plugins: [new ContextCompression({ storage: new S3Storage(...) })],
 });
 ```
@@ -437,7 +437,7 @@ new Agent({
 ```typescript
 // On AgentConfig (inline union, no separate type alias — matches model pattern)
 interface AgentConfig {
-  contextManagement?: "auto" | "agentic" | ContextManagerConfig | ContextManager | false;
+  contextManager?: "auto" | "agentic" | ContextManagerConfig | ContextManager | false;
 }
 
 interface ContextManagerConfig {
@@ -524,7 +524,7 @@ New plugin entirely                 → preset composes it automatically
 
 ### conversationManager migration
 
-| `conversationManager` (today) | `contextManagement` equivalent |
+| `conversationManager` (today) | `contextManager` equivalent |
 |-------------------------------|-------------------------------|
 | `new SlidingWindowConversationManager()` | `{ compression: { strategy: "truncate" } }` |
 | `new SummarizingConversationManager()` | `{ compression: { strategy: "summarize" } }` |
@@ -534,10 +534,10 @@ New plugin entirely                 → preset composes it automatically
 ### Type resolution (in Agent constructor)
 
 ```typescript
-if (typeof contextManagement === "string")              → new ContextManager({ strategy: contextManagement })
-if (contextManagement instanceof ContextManager)        → use directly
-if (typeof contextManagement === "object")              → new ContextManager(contextManagement)
-if (contextManagement === false)                        → null (disabled)
+if (typeof contextManager === "string")              → new ContextManager({ strategy: contextManager })
+if (contextManager instanceof ContextManager)        → use directly
+if (typeof contextManager === "object")              → new ContextManager(contextManager)
+if (contextManager === false)                        → null (disabled)
 ```
 
 </details>
@@ -596,7 +596,7 @@ This provides a "sliding window" over L1 without deleting anything:
 `ContextManager` exposes a `deleteMessages(turnIds)` method that physically removes specific messages from L1 by turn ID. Only archived messages (behind the start cursor) can be deleted — visible messages cannot. Use cases: privacy/compliance (user requests data deletion), storage reclamation for long-running agents after memory has extracted what it needs.
 
 ```typescript
-await agent.contextManagement.deleteMessages(["turn_12", "turn_13", "turn_14"]);
+await agent.contextManager.deleteMessages(["turn_12", "turn_13", "turn_14"]);
 ```
 
 </details>
