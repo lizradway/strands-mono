@@ -76,4 +76,4 @@ The benchmark tests **SDK context management**, not model capability. Using a st
 
 A weaker model that needs 40+ cycles to explore a repo is *more useful* for benchmarking — it guarantees context limits are hit, which is the exact condition where strategy differences emerge.
 
-**Recommendation:** Use `gpt-4.1-mini` for all strategy comparisons. Run the best model (Opus) once per quarter as a ceiling reference to answer "does context management still matter with frontier models?"
+**Recommendation:** Use `gpt-4.1-mini` for all strategy comparisons. Run the best model (Opus) once per quarter as a ceiling reference.
