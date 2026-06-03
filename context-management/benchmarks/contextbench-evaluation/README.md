@@ -22,6 +22,31 @@ new Agent({
 - On **Sonnet**: same quality, half the cost
 - On **Opus**: same cost, finds 20% more relevant code on complex tasks
 
+## Tasks
+
+| Task ID | Repo | Gold Files | Gold Spans | Difficulty |
+|---------|------|-----------|-----------|------------|
+| matplotlib__matplotlib-23314 | matplotlib/matplotlib | 1 | 5 | Easy |
+| matplotlib__matplotlib-22719 | matplotlib/matplotlib | 1 | 4 | Easy |
+| django__django-14539 | django/django | 1 | 2 | Easy |
+| sphinx-doc__sphinx-9602 | sphinx-doc/sphinx | 1 | 5 | Easy (but costly — 4.7M tokens on control) |
+| django__django-14089 | django/django | 1 | 3 | Easy |
+| matplotlib__matplotlib-26342 | matplotlib/matplotlib | 2 | 6 | Medium |
+| pydata__xarray-2905 | pydata/xarray | 2 | 4 | Medium |
+| django__django-15022 | django/django | 3 | 8 | Medium |
+| django__django-13809 | django/django | 3 | 7 | Medium |
+| pydata__xarray-4075 | pydata/xarray | 2 | 5 | Medium |
+| instance_ansible__ansible-4c5ce... | ansible/ansible | 12 | 38 | Medium-Hard |
+| yt-dlp__yt-dlp-5933 | yt-dlp/yt-dlp | 4 | 10 | Medium |
+| yt-dlp__yt-dlp-9862 | yt-dlp/yt-dlp | 4 | 9 | Medium |
+| django__django-15695 | django/django | 4 | 11 | Medium |
+| huggingface__transformers-27663 | huggingface/transformers | 4 | 12 | Medium |
+| sveltejs__svelte-14629 | sveltejs/svelte | 15 | 291 | Hard |
+| instance_navidrome__navidrome-d8e... | navidrome/navidrome | 16 | 39 | Hard |
+| ponylang__ponyc-3962 | ponylang/ponyc | 17 | 24 | Hard |
+| nushell__nushell-13357 | nushell/nushell | 19 | 44 | Hard |
+| cli__cli-8157 | cli/cli | 37 | 72 | Hard |
+
 ## Files
 
 ```
@@ -52,9 +77,9 @@ cd sdk-typescript && npm install && npm run build -w strandly && npm link -w str
 # Install Python deps
 pip install pyarrow tree-sitter tree-sitter-language-pack
 
-# Run the winning config on hard tasks
+# Run the winning config on all 20 tasks
 AWS_REGION=us-east-1 strandly benchmark --suite contextbench \
-  --tasks "sveltejs__svelte-14629,instance_navidrome__navidrome-d8e794317f788198227e10fb667e10496b3eb99a,ponylang__ponyc-3962,nushell__nushell-13357,cli__cli-8157" \
+  --tasks "matplotlib__matplotlib-23314,matplotlib__matplotlib-22719,django__django-14539,sphinx-doc__sphinx-9602,django__django-14089,matplotlib__matplotlib-26342,pydata__xarray-2905,django__django-15022,django__django-13809,pydata__xarray-4075,instance_ansible__ansible-4c5ce5a1a9e79a845aff4978cfeb72a0d4ecf7d6-v1055803c3a812189a1133297f7f5468579283f86,yt-dlp__yt-dlp-5933,yt-dlp__yt-dlp-9862,django__django-15695,huggingface__transformers-27663,sveltejs__svelte-14629,instance_navidrome__navidrome-d8e794317f788198227e10fb667e10496b3eb99a,ponylang__ponyc-3962,nushell__nushell-13357,cli__cli-8157" \
   --config off1500-p750-summ40 \
   --model us.anthropic.claude-opus-4-6-v1 \
   --output results.json
