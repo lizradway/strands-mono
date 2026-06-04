@@ -8,11 +8,44 @@
 
 ## Overview
 
-Build a published recipes/cookbook layer for the Strands SDK — polished, documented workflow agents that show developers how to compose SDK primitives into real solutions. Deploy 3-4 recipes into the Strands team's own processes as dogfooding.
+Build a published recipes package (`@strands-agents/recipes`) containing polished, configurable workflow agents — then deploy those same agents into the Strands team's own processes. Same package, same code path, two consumers: the open-source community AND the internal team.
 
 The SDK ships primitives (interventions, validation loops, structured output, concurrent execution, context management, memory, hooks). The Harness proposal adds opinionated types (`CodingAgent`, `ChatAgent`, `AutonomousAgent`) as execution modes. This project fills the gap between those layers: **recipes that show what you can build when you put them together.**
 
 Think: LangChain's toolkit factories, Vercel AI SDK templates, Mastra recipes — but for Strands.
+
+---
+
+## Dual-Use Model
+
+The recipes are published as a reusable package that anyone can import. The Strands team's internal deployment is just a consumer of that same package — exactly like how Vercel uses Next.js internally or Stripe uses their own SDK.
+
+```
+@strands-agents/recipes (published npm package)
+├── code-review/        ← exported, configurable
+├── issue-triage/       ← exported, configurable
+├── design-sparring/    ← exported, configurable
+├── ...
+├── shared/toolkits/    ← reusable tool bundles (github, codebase, ci)
+└── cli/                ← CLI + GitHub Action wrappers
+
+Community usage:                          Team usage:
+─────────────────                         ──────────
+import { CodeReviewAgent }                .github/workflows/review.yml
+  from '@strands-agents/recipes'            → npx @strands-agents/recipes review
+                                              --pr ${{ github.event.number }}
+const reviewer = new CodeReviewAgent({      --model bedrock/claude-sonnet
+  model,                                    --focus security,bugs
+  focus: ['security', 'performance'],
+})
+const review = await reviewer.review(pr)
+```
+
+**Why this works:**
+- Recipes are configurable — model, thresholds, focus areas, prompts are all overridable. The team's deployment uses Strands-specific config; community uses their own.
+- Toolkits are generic — GitHub toolkit works on any repo, not just strands-agents.
+- Internal usage IS the dogfooding. If a recipe breaks for the team, it's broken for the community too, so it gets fixed immediately.
+- The quality bar is self-enforcing: if the team stops using a recipe because the output isn't good enough, that's a signal to fix or demote it before the community hits the same issue.
 
 ---
 
@@ -74,8 +107,9 @@ Document friction encountered while building recipes. What composed cleanly, wha
 
 ## Why This Project
 
-- **Immediately useful** — the team gets agents that help with real work (reviews, triage, changelogs)
-- **Publicly valuable** — recipes become the "getting started" examples for the Strands community
+- **Ships a real product** — `@strands-agents/recipes` is a published package the community imports, not just example code
+- **Self-dogfooding** — the team's internal usage validates quality continuously. Broken for the team = broken for the community = gets fixed.
 - **Validates the architecture** — building 6-8 agents on the harness reveals whether the primitives actually compose well
 - **Distinct from sprint work** — the core opinionated types (`CodingAgent`, etc.) are sprint-scoped. Recipes are workflow-specific compositions that won't be built otherwise
 - **High breadth** — the intern touches every major SDK surface area (tools, hooks, interventions, memory, context, structured output) across diverse use cases
+- **Flywheel effect** — the team using the recipes daily means they get better over time (prompt tuning, config refinement). Those improvements ship to the community automatically on the next release.
