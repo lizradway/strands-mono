@@ -119,10 +119,9 @@ On `matplotlib-22719` (single file answer), offloader configs performed worse th
 
 ## Open Questions
 
-1. **Would `off2500-p1500-summ40` also win on hard tasks?** It only ran on 15 regular tasks. Higher thresholds might be better when tasks require reading large files.
-2. **Would `keepRecent: 5` (never offload last 5 tool results) fix the focused-task regression?** Claude Code uses this pattern.
-3. **Is 20 tasks enough for statistical significance?** Our CIs are still wide. 50+ tasks would tighten them.
-4. **Does this generalize beyond code investigation?** ContextBench only tests file finding. Multi-step reasoning, customer support, or creative tasks might show different patterns.
+1. **Would `keepRecent: 5` (never offload last 5 tool results) fix the focused-task regression?** Claude Code uses this pattern.
+2. **Is 20 tasks enough for statistical significance?** Our CIs are still wide. 50+ tasks would tighten them.
+3. **Does this generalize beyond code investigation?** ContextBench only tests file finding. Multi-step reasoning, customer support, or creative tasks might show different patterns.
 
 ## Cost
 
