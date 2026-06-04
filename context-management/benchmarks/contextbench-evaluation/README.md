@@ -11,18 +11,54 @@ new Agent({
 })
 ```
 
+## Metrics Definitions
+
+- **Coverage (recall):** Fraction of gold-annotated files that the agent successfully located. A task with 15 gold files where the agent finds 12 has 80% coverage.
+- **Token Savings:** `1 - (config_tokens / control_tokens)`. Positive = cheaper than control.
+- **Control:** The SDK default — `SlidingWindowConversationManager(ws=40)` with no offloader or plugins.
+
 ## Key Results
 
-| Model | Task Difficulty | Control Coverage | Winner Coverage | Token Savings |
-|-------|----------------|-----------------|----------------|---------------|
-| Sonnet 4.6 | Mixed (5 tasks) | 100% | 100% | **54%** |
-| Opus 4.6 | Easy (15 tasks) | 90% | 92% | +3% |
-| Opus 4.6 | **Hard (15-37 gold files)** | **68%** | **88%** | +2% |
+### Sonnet 4.6 (5 single-file tasks, all configs saturated at 100% coverage)
 
-- On **Sonnet**: same quality, half the cost
-- On **Opus**: same cost, finds 20% more relevant code on complex tasks
+No measurable quality difference on these 5 tasks — all configs found the gold file. The differentiation is purely in token cost:
+
+| Config | Avg Tokens | Savings vs Control |
+|--------|-----------|-------------------|
+| control | 1.66M | — |
+| **off1500-p750-summ40 (winner)** | **762K** | **54%** |
+
+Note: Token savings may be skewed by `sphinx-doc__sphinx-9602` (4.7M tokens on control). Median savings across the 5 tasks is 46%.
+
+### Opus 4.6 — Regular Tasks (15 tasks, 1-12 gold files)
+
+| Config | Avg Tokens | Avg Coverage |
+|--------|-----------|-------------|
+| control | 1.40M | 90% |
+| off1500-p750-slwin40 | 1.26M | 92% |
+| off1500-p750-summ40 | 1.36M | 92% |
+
+Marginal difference on regular tasks — Opus handles these without hitting context limits.
+
+### Opus 4.6 — Hard Tasks (5 tasks, 15-37 gold files)
+
+| Config | Avg Tokens | Avg Coverage | vs Control |
+|--------|-----------|-------------|------------|
+| control | 5.47M | 68% | — |
+| off1500-p750-slwin40 | 5.02M | 77% | +9 pp |
+| **off1500-p750-summ40** | 5.34M | **88%** | **+20 pp (~29% relative improvement)** |
+
+Context management is critical on hard tasks. Control misses a third of relevant files. Summarizing + offloading recovers most of them.
+
+## Known Limitations
+
+- **Focused-task regression:** On `matplotlib-22719` (single file answer), offloader configs performed worse than control. The offloader truncated the gold file content, causing the agent to re-read or miss relevant spans. A `keepRecent` parameter (never offload the last N tool results) would likely fix this — a sweep over keepRecent values to find the knee in the tradeoff is a natural next step.
+- **Statistical significance:** Confidence intervals are wide across all configs. None of the Opus results are statistically significant at p<0.05. The Sonnet winner (off1500-p750-summ40) was the only statistically significant result (95% CI [1.04, 10.97]).
+- **Task count:** 20 tasks total. More tasks would tighten confidence intervals.
 
 ## Tasks
+
+20 tasks from ContextBench Verified, balanced across difficulty:
 
 | Task ID | Repo | Gold Files | Gold Spans | Difficulty |
 |---------|------|-----------|-----------|------------|
@@ -47,6 +83,9 @@ new Agent({
 | nushell__nushell-13357 | nushell/nushell | 19 | 44 | Hard |
 | cli__cli-8157 | cli/cli | 37 | 72 | Hard |
 
+**Phase 1 (Sonnet):** Ran the first 5 easy tasks across 16 configs to select the winner.
+**Phase 2 (Opus):** Ran all 20 tasks (15 regular + 5 hard) across the top 4 configs + control.
+
 ## Files
 
 ```
@@ -56,14 +95,14 @@ contextbench-evaluation/
 ├── results-phase1/
 │   └── phase1-progress.txt     # 16 configs × 5 tasks on Sonnet 4.6 (raw results)
 └── results-phase2-opus/
-    ├── phase2-progress.txt     # 4 configs × 15 tasks on Opus 4.6 (raw results)
+    ├── phase2-progress.txt     # 4 configs × 15 regular tasks on Opus 4.6
     ├── results-opus-control.json
     ├── results-opus-off1500-p750-slwin40.json
     ├── results-opus-off1500-p750-slwin40-remaining.json
     ├── results-opus-off1500-p750-summ40.json
     ├── results-opus-off1500-p750-summ40-pc07.json
     ├── results-opus-off2500-p1500-summ40.json
-    ├── results-opus-hard-control.json
+    ├── results-opus-hard-control.json          # 5 hard tasks (15-37 gold files)
     ├── results-opus-hard-off1500-p750-slwin40.json
     └── results-opus-hard-off1500-p750-summ40.json
 ```
