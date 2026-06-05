@@ -40,8 +40,8 @@ new Agent({
 
 | Model | Tasks | Control Coverage | Winner Coverage | Token Savings | Key Benefit |
 |-------|-------|-----------------|----------------|---------------|-------------|
-| **Sonnet 4.6** | 5 | 100% | 100% | **54%** | Same quality, half the cost |
-| **Opus 4.6** | 20 (mixed) | 84% | **91%** | +3% | Better results, same cost |
+| **Sonnet 4.6** | 5 | 100% | 100% | **54%** | No measurable quality difference (saturating); half the tokens |
+| **Opus 4.6** | 20 (mixed) | 84% | **91%** | +3% | +7 pp coverage, similar token cost |
 | **Opus 4.6** | 5 (hard only) | 68% | **88%** | +2% | Finds 20% more relevant files |
 
 ### By Task Difficulty (Opus 4.6)
