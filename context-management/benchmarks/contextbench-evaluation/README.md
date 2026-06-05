@@ -11,11 +11,47 @@ new Agent({
 })
 ```
 
-## Metrics Definitions
+<details>
+<summary><b>Definitions</b></summary>
 
-- **Coverage (recall):** Fraction of gold-annotated files that the agent successfully located. A task with 15 gold files where the agent finds 12 has 80% coverage.
-- **Token Savings:** `1 - (config_tokens / control_tokens)`. Positive = cheaper than control.
-- **Control:** The SDK default — `SlidingWindowConversationManager(ws=40)` with no offloader or plugins.
+### What is a "task"?
+A task is a real GitHub issue from the [ContextBench](https://github.com/EuniAI/ContextBench) dataset. Each task provides:
+- A **problem statement** (the GitHub issue text)
+- A **repository** cloned at a specific commit
+- **Gold annotations** — the files (and line ranges) that actually need to be changed to resolve the issue
+
+The agent is given the problem statement, the cloned repo, and a `bash` tool. It explores freely and we record which files it reads.
+
+### What is "coverage"?
+Fraction of gold-annotated files that the agent successfully located. A task with 15 gold files where the agent finds 12 has 80% coverage. This measures recall — did the agent find the relevant code?
+
+### What is "control"?
+The SDK default configuration: `SlidingWindowConversationManager(windowSize: 40)` with no offloader or plugins. This is what a user gets out of the box with `new Agent()`.
+
+### What is "token savings"?
+`1 - (config_tokens / control_tokens)`. Positive means the config used fewer tokens than control. A 54% savings means the config used roughly half the tokens.
+
+### What is a "config"?
+A specific combination of context management strategies applied to the agent. For example, `off1500-p750-summ40` means: ContextOffloader with maxResultTokens=1500, previewTokens=750, combined with SummarizingConversationManager at ratio=0.3.
+
+### What is "offloading"?
+The ContextOffloader plugin replaces large tool results (above a token threshold) with a truncated preview + a retrieval tool the agent can call to get the full content back. This keeps the conversation context lean without permanently losing information.
+
+### What is "summarizing" vs "sliding window"?
+Two strategies for handling context overflow:
+- **Sliding window:** Drops the oldest messages entirely when the conversation exceeds the window size.
+- **Summarizing:** Replaces the oldest messages with an LLM-generated summary that preserves the key information in compressed form.
+
+### What is "proactive compression"?
+A setting that triggers context compression *before* the context window is full, at a configurable threshold (e.g., 0.7 = compress when 70% full). Without it, compression only happens reactively after overflow.
+
+### What is "TAR"?
+Token-Accuracy Ratio: `coverage × (control_tokens / config_tokens)`. TAR > 1 means better accuracy per token than control. High variance across tasks makes this metric less reliable than raw coverage or savings.
+
+### What are "gold files"?
+The files in the repository that ContextBench has annotated as needing changes to resolve the issue. These are the ground truth — the agent's job is to find them.
+
+</details>
 
 ## Key Results
 
