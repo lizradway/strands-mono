@@ -118,12 +118,3 @@ The direct comparison between pc085 and no-proactive is borderline significant. 
 2. **Why 0.85 specifically?** Would 0.82-0.88 also work, or is there a sharp cliff?
 3. **Does this generalize beyond code investigation?** ContextBench only tests file finding.
 4. **Is pc085 better than no-proactive, or is the whole combo what matters?** Direct comparison is borderline (p=0.058).
-5. **Will the same-run control (currently queued) replicate the prior control's results?**
-
-## Cost (Phase 3)
-
-- Proactive sweep (Sonnet, 20 runs): ~$80
-- Replication run 1 (Opus pc085, 20 runs): ~$400
-- Replication run 2 (Opus pc085 + summ40 + control, 60 runs): ~$1,200 (in progress)
-- **Phase 3 total: ~$1,680**
-- **Grand total (all phases): ~$3,800**
