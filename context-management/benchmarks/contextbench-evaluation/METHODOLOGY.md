@@ -42,14 +42,14 @@ new Agent({
 |-------|-------|-----------------|----------------|---------------|-------------|
 | **Sonnet 4.6** | 5 | 100% | 100% | **54%** | No measurable quality difference (saturating); half the tokens |
 | **Opus 4.6** | 20 (mixed) | 84% | **91%** | +3% | +7 pp coverage, similar token cost |
-| **Opus 4.6** | 5 (hard only) | 68% | **88%** | +2% | Finds 20% more relevant files |
+| **Opus 4.6** | 5 (hard only) | 68% | **88%** | +2% | +20 pp coverage (~29% relative improvement) |
 
 ### By Task Difficulty (Opus 4.6)
 
 | Difficulty | Gold Files | Control Coverage | Summarizing Coverage | Difference |
 |-----------|-----------|-----------------|---------------------|------------|
 | Easy | 1-3 | ~95% | ~95% | None |
-| Hard | 15-37 | **68%** | **88%** | **+20%** |
+| Hard | 15-37 | **68%** | **88%** | **+20 pp** |
 
 ## Pitches
 
@@ -57,10 +57,10 @@ new Agent({
 > "Reduce token usage by 54% with no loss in accuracy. One line of configuration saves half your API costs on long-running agents."
 
 ### For quality-focused users (Opus/frontier):
-> "Find 20% more relevant code on complex tasks. Context management prevents your agent from losing track of what it's explored, improving code retrieval from 68% to 88% on multi-file investigations."
+> "Improve code retrieval by 20 percentage points on complex tasks (68% → 88%). Context management prevents your agent from losing track of what it's explored during multi-file investigations."
 
 ### For the blog:
-> "We benchmarked 16 context management strategies across 20 ContextBench tasks on Claude Sonnet 4.6 and Opus 4.6. The winner — offloading tool results >1500 tokens combined with summarizing conversation management — saves 54% tokens on Sonnet and improves code retrieval accuracy by 20% on complex tasks with Opus. Ship it with two lines of code."
+> "We benchmarked 16 context management strategies across 20 ContextBench tasks on Claude Sonnet 4.6 and Opus 4.6. The winner — offloading tool results >1500 tokens combined with summarizing conversation management — saves 54% tokens on Sonnet and improves code retrieval coverage by 20 pp (68% → 88%) on complex tasks with Opus. Ship it with two lines of code."
 
 ### For the README/docs:
 > "For long-running agents that make many tool calls, add context management to reduce costs and improve accuracy:
@@ -70,7 +70,7 @@ new Agent({
 >   conversationManager: new SummarizingConversationManager({ summaryRatio: 0.3 }),
 > })
 > ```
-> This reduces token usage by up to 54% on mid-tier models, and improves code retrieval accuracy by up to 20% on frontier models for complex multi-file tasks."
+> This reduces token usage by up to 54% on mid-tier models, and improves code retrieval coverage by up to 20 pp on frontier models for complex multi-file tasks."
 
 ## Models
 
@@ -115,7 +115,7 @@ Context management provides marginal benefit on regular tasks — Opus handles t
 | off1500-p750-slwin40 | 5.02M | 77% | 55.3% |
 | **off1500-p750-summ40** | 5.34M | **88%** | **56.8%** |
 
-Context management is critical on hard tasks — control misses 32% of relevant files. Summarizing finds 20% more.
+Context management is critical on hard tasks — control misses 32% of relevant files. Summarizing recovers +20 pp coverage.
 
 ### Why Summarizing > Sliding Window on Hard Tasks
 
@@ -126,7 +126,7 @@ Sliding window drops old messages entirely — the agent loses track of files it
 | Model Tier | Context Window | Primary Benefit | Mechanism |
 |-----------|---------------|-----------------|-----------|
 | Sonnet/Haiku | 200K-1M | **Token savings** (54%) | Agent hits context limit earlier, management prevents overflow waste |
-| Opus | 1M | **Coverage improvement** (+20%) | Agent explores full window but loses organization; management keeps it focused |
+| Opus | 1M | **Coverage improvement** (+20 pp) | Agent explores full window but loses organization; management keeps it focused |
 
 ## Finding: Offloading Hurts on Focused Tasks
 
