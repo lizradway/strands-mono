@@ -80,7 +80,7 @@ new Agent({
 ## Tasks
 
 20 Python tasks from ContextBench Verified split:
-- **Easy/Medium (15 tasks, 1-4 gold files):** matplotlib-23314, matplotlib-22719, django-14539, sphinx-9602, django-14089, matplotlib-26342, xarray-2905, django-15022, django-13809, xarray-4075, ansible (12 files), yt-dlp-5933, yt-dlp-9862, django-15695, transformers-27663
+- **Regular (15 tasks, 1-12 gold files):** matplotlib-23314, matplotlib-22719, django-14539, sphinx-9602, django-14089, matplotlib-26342, xarray-2905, django-15022, django-13809, xarray-4075, ansible (12 files), yt-dlp-5933, yt-dlp-9862, django-15695, transformers-27663
 - **Hard (5 tasks, 15-37 gold files):** sveltejs-14629 (15 files, 291 spans), navidrome (16 files), ponylang-ponyc-3962 (17 files), nushell-13357 (19 files), cli-cli-8157 (37 files)
 
 ## Phase 1: Config Selection (Sonnet 4.6, 5 tasks)
@@ -97,7 +97,7 @@ new Agent({
 
 ## Phase 2: Validation (Opus 4.6, 20 tasks)
 
-### Regular tasks (15 tasks, 1-12 gold files)
+### Regular tasks (15 tasks: 5 easy + 10 medium, 1-12 gold files)
 
 | Config | Tokens | Coverage | Savings |
 |--------|--------|----------|---------|

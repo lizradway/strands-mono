@@ -41,7 +41,7 @@ No measurable quality difference on these 5 tasks — all configs found the gold
 
 Note: Token savings may be skewed by `sphinx-doc__sphinx-9602` (4.7M tokens on control). Median savings across the 5 tasks is 46%.
 
-### Opus 4.6 — Regular Tasks (15 tasks, 1-12 gold files)
+### Opus 4.6 — Regular Tasks (15 tasks: 5 easy + 10 medium, 1-12 gold files)
 
 | Config | Avg Tokens | Avg Coverage |
 |--------|-----------|-------------|
@@ -94,8 +94,8 @@ Context management is critical on hard tasks. Control misses a third of relevant
 | nushell__nushell-13357 | nushell/nushell | 19 | 44 | Hard |
 | cli__cli-8157 | cli/cli | 37 | 72 | Hard |
 
-**Phase 1 (Sonnet):** Ran the first 5 easy tasks across 16 configs to select the winner.
-**Phase 2 (Opus):** Ran all 20 tasks (15 regular + 5 hard) across the top 4 configs + control.
+**Phase 1 (Sonnet):** Ran the first 5 single-file tasks (all Easy) across 16 configs to select the winner.
+**Phase 2 (Opus):** Ran the top 4 configs + control on 15 regular tasks (1-12 gold files), then additionally on 5 hard tasks (15-37 gold files). Total: 20 unique tasks.
 
 ## Files
 
