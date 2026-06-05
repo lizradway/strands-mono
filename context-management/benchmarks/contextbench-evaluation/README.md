@@ -57,7 +57,7 @@ Marginal difference on regular tasks — Opus handles these without hitting cont
 |--------|-----------|-------------|------------|
 | control | 5.47M | 68% | — |
 | off1500-p750-slwin40 | 5.02M | 77% | +9 pp |
-| **off1500-p750-summ40** | 5.34M | **88%** | **+20 pp (~29% relative improvement)** |
+| **off1500-p750-summ40** | 5.34M | **88%** | **+29% relative (68% → 88%)** |
 
 Context management is critical on hard tasks. Control misses a third of relevant files. Summarizing + offloading recovers most of them.
 
