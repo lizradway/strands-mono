@@ -4,6 +4,21 @@
 
 Determine the optimal context management configuration for the Strands SDK by measuring token efficiency and code retrieval accuracy across diverse ContextBench tasks.
 
+## Definitions
+
+- **Task:** A real GitHub issue from ContextBench with a problem statement, a cloned repository at a specific commit, and gold annotations (the files/lines that need changing). The agent gets the problem statement, the repo, and a `bash` tool to explore freely.
+- **Gold files:** The files in the repository that ContextBench has annotated as needing changes to resolve the issue. Ground truth.
+- **Coverage (recall):** Fraction of gold files the agent found. 15 gold files, agent finds 12 = 80% coverage.
+- **Control:** SDK default — `SlidingWindowConversationManager(ws=40)`, no offloader or plugins. What `new Agent()` gives you.
+- **Config:** A specific combination of context management strategies. E.g., `off1500-p750-summ40` = ContextOffloader(maxResultTokens=1500, previewTokens=750) + SummarizingConversationManager(ratio=0.3).
+- **Token savings:** `1 - (config_tokens / control_tokens)`. 54% savings = roughly half the tokens.
+- **Offloading:** ContextOffloader plugin replaces large tool results with a truncated preview + a retrieval tool the agent can call to get the full content back.
+- **Sliding window:** Drops the oldest messages entirely when conversation exceeds window size.
+- **Summarizing:** Replaces the oldest messages with an LLM-generated summary that preserves key information in compressed form.
+- **Proactive compression:** Triggers compression before the context window is full, at a configurable threshold (e.g., 0.7 = compress at 70% full). Without it, compression only happens reactively after overflow.
+- **TAR:** Token-Accuracy Ratio: `coverage × (control_tokens / config_tokens)`. TAR > 1 = better accuracy per token than control. High variance makes this less reliable than raw coverage or savings.
+- **Percentage points (pp):** Absolute difference between two percentages. 68% → 88% = +20 pp (not +20%).
+
 ## Winner
 
 **`ContextOffloader(maxResultTokens: 1500, previewTokens: 750) + SummarizingConversationManager(summaryRatio: 0.3)`**
