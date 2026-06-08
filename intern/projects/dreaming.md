@@ -30,8 +30,8 @@ Build a `GitMemoryStore` that:
 2. **Auto-versions everything** — every write from any layer produces an informative git commit
 3. **Supports progressive disclosure** — not everything loads into context every turn; relevant knowledge is selected based on the current query within a token budget
 4. **Includes a consolidation agent** — a developer-invoked Strands agent that reasons across accumulated knowledge to deduplicate, resolve contradictions, and derive new insights
-5. **Enables concurrent consolidation** — multiple consolidation operations can run in parallel via git worktrees and merge results
-6. **Remains client-side** — no server, no daemon. Consolidation runs when the developer invokes it (session boundary, cron, CI, manually).
+5. **Enables concurrent consolidation** — multiple consolidation operations can run in parallel via git worktrees and merge results | Nice to have
+6. **Remains client-side** — no server, no daemon. Consolidation runs when the developer invokes it (session boundary, cron, CI, manually) | Nice to have
 
 ---
 
@@ -39,12 +39,12 @@ Build a `GitMemoryStore` that:
 
 1. A working `GitMemoryStore` that plugs into both `contextManager.storage` and `memoryManager.stores` — passing integration tests with the existing SDK
 2. `git log` on the memory repo tells a coherent, human-readable story of what the agent learned and when
-3. Consolidation measurably improves retrieval quality (>25% precision@5 improvement on a benchmark of multi-session Q&A)
-4. Progressive disclosure reduces tokens loaded per turn (>50% reduction vs. loading everything) without significant accuracy loss (<10%)
+3. Meausre of how consolidation changes retrieval quality (ie. benchmark)
+4. Measure of how progressive disclosure changes tokens loaded per turn/accuracy
 5. A developer can inspect, diff, and rollback agent memory using standard git tooling
-6. A CLI entrypoint for running consolidation outside of an agent session
-7. Benchmark comparison against non-git alternatives (FileKnowledgeStore, InMemoryKnowledgeStore) showing where git adds value and where it doesn't
-8. A deployed end-to-end example — a Strands agent (code review, coding assistant, or similar) that uses `GitMemoryStore` for memory accumulation across sessions, with scheduled consolidation via GitHub Actions. Deployed for an internal team use case (e.g., a code review agent that remembers codebase patterns, or an onboarding agent that accumulates project knowledge) AND publishable as a labs/devtools sample demonstrating the full lifecycle: agent learns → memory accumulates → consolidation improves → agent gets better over time
+6. A CLI entrypoint for running consolidation outside of an agent session | Nice to have 
+7. Benchmark comparison against non-git alternatives (FileKnowledgeStore, InMemoryKnowledgeStore) showing where git adds value and where it doesn't | Nice to have
+8. A deployed end-to-end example — a Strands agent (code review, coding assistant, or similar) that uses `GitMemoryStore` for memory accumulation across sessions, with scheduled consolidation via GitHub Actions. Deployed for an internal team use case (e.g., a code review agent that remembers codebase patterns, or an onboarding agent that accumulates project knowledge) AND publishable as a labs/devtools sample demonstrating the full lifecycle: agent learns → memory accumulates → consolidation improves → agent gets better over time | Nice to have
 
 ---
 
