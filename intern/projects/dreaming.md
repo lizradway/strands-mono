@@ -44,6 +44,7 @@ Build a `GitMemoryStore` that:
 5. A developer can inspect, diff, and rollback agent memory using standard git tooling
 6. A CLI entrypoint for running consolidation outside of an agent session
 7. Benchmark comparison against non-git alternatives (FileKnowledgeStore, InMemoryKnowledgeStore) showing where git adds value and where it doesn't
+8. A deployed end-to-end example — a Strands agent (code review, coding assistant, or similar) that uses `GitMemoryStore` for memory accumulation across sessions, with scheduled consolidation via GitHub Actions. Publishable as a labs/devtools sample or community example demonstrating the full lifecycle: agent learns → memory accumulates → consolidation improves → agent gets better over time
 
 ---
 
