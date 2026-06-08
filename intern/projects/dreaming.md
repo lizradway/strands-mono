@@ -47,6 +47,12 @@ Build a `GitMemoryStore` that:
 
 ---
 
+## Deployment Note
+
+Since Strands is a client-side SDK with no server process, consolidation needs an external trigger. The natural pattern: a scheduled GitHub Action that runs the consolidation agent and commits results back to the memory repo. This sidesteps the "no daemon" constraint — CI is the server. The memory repo is already git, so committing consolidated results and pushing is native to the storage model.
+
+---
+
 ## Research Questions to Explore
 
 - Does git add meaningful value over plain files? Is the version history and branching worth the complexity?
