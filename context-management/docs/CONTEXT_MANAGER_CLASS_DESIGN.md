@@ -9,7 +9,7 @@
 
 ## 1. Problem
 
-The v1 `contextManager: "auto"` facade proves the value of one-liner context management. But it's a fixed composition — users who need different compression strategies, content-aware routing, third-party integrations, or custom eviction logic have no path between `"auto"` and manually wiring plugins/conversation managers.
+The v1 `contextManager: "auto"` facade proves the value of one-liner context management. But it's a fixed composition — users who need different compression methods, content-aware routing, third-party integrations, or custom eviction logic have no path between `"auto"` and manually wiring plugins/conversation managers.
 
 The SDK needs a `ContextManager` class that:
 - Preserves the one-liner simplicity of `"auto"`
@@ -22,11 +22,11 @@ The SDK needs a `ContextManager` class that:
 
 ## 2. Core Model
 
-### 2.1 The Single Concept: Strategy
+### 2.1 The Single Concept: Method
 
-Everything the ContextManager does when under budget pressure is a **strategy** applied to messages. There is no separate "offloader" vs "compressor" vs "evictor" — these are all strategies:
+Everything the ContextManager does when under budget pressure is a **method** applied to messages. There is no separate "offloader" vs "compressor" vs "evictor" — these are all methods:
 
-| Strategy | L0 result | Writes to L1? | Recoverable? |
+| Method | L0 result | Writes to L1? | Recoverable? |
 |----------|-----------|---------------|--------------|
 | `"protect"` | Unchanged | No (still in L0) | N/A |
 | `"summarize"` | Replaced with summary | Yes | Yes (from L1) |
@@ -39,7 +39,7 @@ Everything the ContextManager does when under budget pressure is a **strategy** 
 
 ### 2.2 L1 Writing
 
-L1 writing is not a strategy attribute — it's a **ContextManager-level behavior**. Before any lossy transformation, the ContextManager persists the original to L1 (transcript). Strategies only decide *how* to transform L0; the ContextManager decides *whether* to preserve.
+L1 writing is not a method attribute — it's a **ContextManager-level behavior**. Before any lossy transformation, the ContextManager persists the original to L1 (transcript). Methods only decide *how* to transform L0; the ContextManager decides *whether* to preserve.
 
 Exceptions:
 - `"protect"` — no L1 write needed (message stays in L0)
@@ -52,8 +52,8 @@ Every message has a priority score. When budget pressure hits, the ContextManage
 1. Sorts messages by priority (lowest first)
 2. Takes lowest-priority messages as candidates until enough budget would be freed
 3. Writes candidates to L1 (preserve originals)
-4. Passes candidates to the strategy (via ContentRouter or single strategy)
-5. Strategy returns transformed messages
+4. Passes candidates to the method (via ContentRouter or single method)
+5. Method returns transformed messages
 6. Merges untouched + transformed back into L0
 
 Priority sources:
@@ -74,45 +74,45 @@ const agent = new Agent({ contextManager: "auto" })
 
 // Level 2: Tweak the preset
 const agent = new Agent({
-  contextManager: { preset: "auto", storage: new S3Storage(...), threshold: 0.9 }
+  contextManager: { preset: "auto", scratchpad: new S3Storage(...), threshold: 0.9 }
 })
 
 // Level 3: Content-aware routing
 const agent = new Agent({
   contextManager: new ContextManager({
-    strategy: new ContentRouter({
-      toolResults: new OffloadStrategy({ preview: "head-tail", keepRecent: 3 }),
-      toolResultErrors: new DropStrategy({ keepLast: 1 }),
-      assistantMessages: new SummarizeStrategy({ ratio: 0.3 }),
+    method: new ContentRouter({
+      toolResults: new OffloadMethod({ preview: "head-tail", keepRecent: 3 }),
+      toolResultErrors: new DropMethod({ keepLast: 1 }),
+      assistantMessages: new SummarizeMethod({ ratio: 0.3 }),
       userMessages: "protect",
       images: "offload",
     }),
-    storage: new S3Storage(...),
+    scratchpad: new S3Storage(...),
   })
 })
 
 // Level 4: Plug in third-party
 const agent = new Agent({
   contextManager: new ContextManager({
-    strategy: new HeadroomStrategy({ apiKey: '...' }),
+    method: new HeadroomMethod({ apiKey: '...' }),
   })
 })
 ```
 
 ---
 
-## 4. Strategy Interface
+## 4. Method Interface
 
 ### 4.1 The core interface (what 3P implements)
 
 ```typescript
-interface CompressionStrategy {
+interface CompressionMethod {
   name: string
   compress(messages: Message[], budget: TokenBudget): Promise<Message[]>
 }
 ```
 
-Messages in, fewer/smaller messages out. The ContextManager handles L1 writing, priority sorting, pin filtering, and budget tracking — strategies don't need to know about any of that.
+Messages in, fewer/smaller messages out. The ContextManager handles L1 writing, priority sorting, pin filtering, and budget tracking — methods don't need to know about any of that.
 
 ### 4.2 TokenBudget
 
@@ -126,57 +126,57 @@ type TokenBudget = {
 }
 ```
 
-### 4.3 Built-in strategies
+### 4.3 Built-in methods
 
 ```typescript
 // String shorthands (use defaults)
-type StrategyShorthand = "protect" | "summarize" | "truncate" | "offload" | "drop"
+type MethodShorthand = "protect" | "summarize" | "truncate" | "offload" | "drop"
                        | "skeleton" | "schema-only" | "collapse-pairs"
 
 // Configurable class instances
-new SummarizeStrategy({ ratio?: number, model?: Model, prompt?: string })
-new TruncateStrategy({ keep?: "head" | "tail" | "head-tail", tokens?: number })
-new OffloadStrategy({
+new SummarizeMethod({ ratio?: number, model?: Model, prompt?: string })
+new TruncateMethod({ keep?: "head" | "tail" | "head-tail", tokens?: number })
+new OffloadMethod({
   preview?: "head" | "tail" | "head-tail",
   previewTokens?: number,
   thresholdRatio?: number,       // offload results > this fraction of context window (default 0.0075)
   threshold?: number,            // or absolute token count (overrides ratio)
   keepRecent?: number,           // never offload last N tool results
   skipTools?: string[],          // never offload results from these tools
-  fallback?: CompressionStrategy | StrategyShorthand,
+  fallback?: CompressionMethod | MethodShorthand,
 })
-new SkeletonStrategy({ languages?: string[], fallback?: CompressionStrategy | StrategyShorthand })
-new DropStrategy({ keepLast?: number })  // drop failed attempts, keep most recent N
+new SkeletonMethod({ languages?: string[], fallback?: CompressionMethod | MethodShorthand })
+new DropMethod({ keepLast?: number })  // drop failed attempts, keep most recent N
 ```
 
 ### 4.4 ContentRouter
 
 ```typescript
-class ContentRouter implements CompressionStrategy {
+class ContentRouter implements CompressionMethod {
   name = 'content-router'
 
   constructor(routes: {
-    toolResults?: CompressionStrategy | StrategyShorthand
-    toolResultErrors?: CompressionStrategy | StrategyShorthand
-    assistantMessages?: CompressionStrategy | StrategyShorthand
-    userMessages?: CompressionStrategy | StrategyShorthand
-    images?: CompressionStrategy | StrategyShorthand
-    documents?: CompressionStrategy | StrategyShorthand
-    code?: CompressionStrategy | StrategyShorthand
-    json?: CompressionStrategy | StrategyShorthand
-    default?: CompressionStrategy | StrategyShorthand
+    toolResults?: CompressionMethod | MethodShorthand
+    toolResultErrors?: CompressionMethod | MethodShorthand
+    assistantMessages?: CompressionMethod | MethodShorthand
+    userMessages?: CompressionMethod | MethodShorthand
+    images?: CompressionMethod | MethodShorthand
+    documents?: CompressionMethod | MethodShorthand
+    code?: CompressionMethod | MethodShorthand
+    json?: CompressionMethod | MethodShorthand
+    default?: CompressionMethod | MethodShorthand
   })
 }
 ```
 
-The router inspects each message/content block and dispatches to the appropriate strategy. Unmatched content uses `default` (falls back to `"truncate"` if not specified).
+The router inspects each message/content block and dispatches to the appropriate method. Unmatched content uses `default` (falls back to `"truncate"` if not specified).
 
 ### 4.5 FallbackChain
 
 ```typescript
-class FallbackChain implements CompressionStrategy {
+class FallbackChain implements CompressionMethod {
   name = 'fallback-chain'
-  constructor(strategies: CompressionStrategy[])
+  constructor(methods: CompressionMethod[])
   // Tries each in order. If one throws (e.g. API down), falls back to next.
 }
 ```
@@ -187,8 +187,8 @@ class FallbackChain implements CompressionStrategy {
 
 ### 5.1 Design principles
 
-- 3P strategies implement the same `CompressionStrategy` interface as ours
-- No special adapter layer — 3P is just another strategy
+- 3P methods implement the same `CompressionMethod` interface as ours
+- No special adapter layer — 3P is just another method
 - We ship wrapper packages for popular services (`@strands-agents/context-headroom`, etc.)
 - The interface is simple enough (~10 lines) for community wrappers
 
@@ -196,7 +196,7 @@ class FallbackChain implements CompressionStrategy {
 
 ```typescript
 // @strands-agents/context-headroom
-export class HeadroomStrategy implements CompressionStrategy {
+export class HeadroomMethod implements CompressionMethod {
   name = 'headroom'
   private client: HeadroomClient
 
@@ -214,7 +214,7 @@ export class HeadroomStrategy implements CompressionStrategy {
 
 | Service | Type | What we'd wrap |
 |---------|------|----------------|
-| Headroom | Managed API | Multi-stage compression with reversible storage |
+| Headroom | Managed API | Multi-stage compression with reversible scratchpad |
 | LLMLingua-2 | Local library | BERT-based token classification (fast, no LLM call) |
 | Claw Compactor | Local library | 14-stage fusion pipeline (AST-aware, JSON sampling) |
 | Leanctx | Local library | Content-aware routing to different compressors |
@@ -233,8 +233,8 @@ export class ContextManager implements Plugin {
   readonly name = 'strands:context-manager'
 
   constructor(config?: {
-    strategy?: CompressionStrategy | ContentRouter | StrategyShorthand
-    storage?: Storage
+    method?: CompressionMethod | ContentRouter | MethodShorthand
+    scratchpad?: Scratchpad
     threshold?: number              // proactive compression ratio (0-1], default 0.85
     protectFirst?: number           // pin first N messages, default 1
     transcript?: {
@@ -245,7 +245,7 @@ export class ContextManager implements Plugin {
       reserveForTools?: number      // fraction to keep free for tool results (0-1)
       reserveForMemory?: number     // fraction to keep free for memory injection (0-1)
     }
-    telemetry?: boolean             // emit OTEL spans per strategy, default false
+    telemetry?: boolean             // emit OTEL spans per method, default false
   })
 }
 ```
@@ -254,18 +254,18 @@ export class ContextManager implements Plugin {
 
 ```typescript
 new ContextManager({
-  strategy: new ContentRouter({
-    toolResults: new OffloadStrategy({
+  method: new ContentRouter({
+    toolResults: new OffloadMethod({
       preview: "head-tail",
       thresholdRatio: 0.0075,
       keepRecent: 3,
     }),
-    toolResultErrors: new DropStrategy({ keepLast: 1 }),
-    assistantMessages: new SummarizeStrategy({ ratio: 0.3 }),
+    toolResultErrors: new DropMethod({ keepLast: 1 }),
+    assistantMessages: new SummarizeMethod({ ratio: 0.3 }),
     userMessages: "protect",
     images: "offload",
   }),
-  storage: new InMemoryStorage(),
+  scratchpad: new InMemoryStorage(),
   threshold: 0.85,
   protectFirst: 1,
   transcript: { enabled: true, retrieval: true },
@@ -277,7 +277,7 @@ new ContextManager({
 | Hook | Action |
 |------|--------|
 | `BeforeModelCallEvent` | Check budget ratio. If > threshold, run proactive compression. |
-| `AfterToolCallEvent` | Check tool result size. If > offload threshold, apply tool result strategy immediately. |
+| `AfterToolCallEvent` | Check tool result size. If > offload threshold, apply tool result method immediately. |
 | `AfterModelCallEvent` | If `ContextWindowOverflowError`, run reactive compression (must succeed). |
 | `AgentInitializedEvent` | Register retrieval tools if transcript.retrieval is true. |
 
@@ -311,13 +311,13 @@ class ContextManager {
 
 An append-only log of messages evicted from L0. Written before any lossy transformation. Provides the agent with a way to recover information that was compressed away.
 
-### 7.2 Storage
+### 7.2 Scratchpad
 
-Uses the same `Storage` interface as the offloader. Default: `InMemoryStorage` (non-durable). For session-based agents, use `FileStorage` or `S3Storage`.
+Uses the same `Scratchpad` interface as the offloader. Default: `InMemoryStorage` (non-durable). For session-based agents, use `FileStorage` or `S3Storage`.
 
 ### 7.3 Eviction
 
-L1 grows as more messages are evicted from L0. Automatic eviction prevents unbounded storage growth:
+L1 grows as more messages are evicted from L0. Automatic eviction prevents unbounded scratchpad growth:
 
 ```typescript
 transcript: {
@@ -330,7 +330,7 @@ transcript: {
 |-----------------|----------|
 | `"after-extraction"` | Only evict messages that MemoryManager has already processed (extracted to L2). Unprocessed messages stay until extraction completes. Default when `memoryManager` is configured. |
 | `"oldest-first"` | Evict oldest messages regardless of extraction status. Default when no `memoryManager` is configured. |
-| `"never"` | L1 grows unbounded. For short-lived agents or when storage is cheap. |
+| `"never"` | L1 grows unbounded. For short-lived agents or when scratchpad is cheap. |
 
 When `"oldest-first"` is used without a MemoryManager, unextracted information is permanently lost. This is acceptable for many use cases but worth surfacing — users who want cross-session knowledge should configure a MemoryManager.
 
@@ -353,7 +353,7 @@ ContextManager doesn't know or care about L2. It just exposes its transcript. Me
 
 ---
 
-## 8. Preview Strategies
+## 8. Preview Methods
 
 How content is previewed when offloaded or truncated:
 
@@ -363,11 +363,11 @@ How content is previewed when offloaded or truncated:
 | `"tail"` | Keep last N tokens | Logs, build output |
 | `"head-tail"` | Keep first N/2 + last N/2, elide middle | Terminal output, API responses |
 
-Configurable per strategy:
+Configurable per method:
 
 ```typescript
-new OffloadStrategy({ preview: "head-tail", previewTokens: 750 })
-new TruncateStrategy({ keep: "tail", tokens: 500 })
+new OffloadMethod({ preview: "head-tail", previewTokens: 750 })
+new TruncateMethod({ keep: "tail", tokens: 500 })
 ```
 
 ---
@@ -379,7 +379,7 @@ This design covers L0↔L1 (within-session context management). The broader Memo
 How they relate:
 - **ContextManager** owns L0 (context window) and L1 (session transcript)
 - **MemoryManager** owns L2 (cross-session knowledge) and reads from L1 for extraction
-- The `Storage` interface and `CompressionStrategy` interface are the same ones the Memory SDK proposal would use
+- The `Scratchpad` interface and `CompressionMethod` interface are the same ones the Memory SDK proposal would use
 - If the Memory SDK ships, ContextManager becomes a component within it (not replaced by it)
 
 This design is compatible with the broader vision but doesn't depend on it. Ship ContextManager now; align with Memory SDK later if/when it materializes.
@@ -399,7 +399,7 @@ const agent = new Agent({ contextManager: "auto" })
 
 ```typescript
 const agent = new Agent({
-  contextManager: { preset: "auto", storage: new S3Storage(...), threshold: 0.9 }
+  contextManager: { preset: "auto", scratchpad: new S3Storage(...), threshold: 0.9 }
 })
 ```
 
@@ -408,29 +408,29 @@ const agent = new Agent({
 ```typescript
 const agent = new Agent({
   contextManager: new ContextManager({
-    strategy: new ContentRouter({
-      toolResults: new OffloadStrategy({ preview: "head-tail", keepRecent: 3 }),
-      toolResultErrors: new DropStrategy({ keepLast: 1 }),
-      assistantMessages: new SummarizeStrategy({ ratio: 0.3 }),
+    method: new ContentRouter({
+      toolResults: new OffloadMethod({ preview: "head-tail", keepRecent: 3 }),
+      toolResultErrors: new DropMethod({ keepLast: 1 }),
+      assistantMessages: new SummarizeMethod({ ratio: 0.3 }),
       userMessages: "protect",
       images: "offload",
       code: "skeleton",
       json: "schema-only",
     }),
-    storage: new S3Storage(...),
+    scratchpad: new S3Storage(...),
     threshold: 0.85,
   })
 })
 ```
 
-### Level 4: Third-party (single strategy)
+### Level 4: Third-party (single method)
 
 ```typescript
-import { HeadroomStrategy } from '@strands-agents/context-headroom'
+import { HeadroomMethod } from '@strands-agents/context-headroom'
 
 const agent = new Agent({
   contextManager: new ContextManager({
-    strategy: new HeadroomStrategy({ apiKey: '...' }),
+    method: new HeadroomMethod({ apiKey: '...' }),
   })
 })
 ```
@@ -440,20 +440,20 @@ const agent = new Agent({
 ```typescript
 const agent = new Agent({
   contextManager: new ContextManager({
-    strategy: new ContentRouter({
+    method: new ContentRouter({
       toolResults: "offload",
-      assistantMessages: new HeadroomStrategy({ apiKey: '...' }),
+      assistantMessages: new HeadroomMethod({ apiKey: '...' }),
       userMessages: "protect",
-      code: new SkeletonStrategy({ fallback: "head-tail" }),
+      code: new SkeletonMethod({ fallback: "head-tail" }),
     }),
   })
 })
 ```
 
-### Level 6: Custom strategy
+### Level 6: Custom method
 
 ```typescript
-class MyCompression implements CompressionStrategy {
+class MyCompression implements CompressionMethod {
   name = 'my-compression'
 
   async compress(messages: Message[], budget: TokenBudget): Promise<Message[]> {
@@ -462,7 +462,7 @@ class MyCompression implements CompressionStrategy {
 }
 
 const agent = new Agent({
-  contextManager: new ContextManager({ strategy: new MyCompression() })
+  contextManager: new ContextManager({ method: new MyCompression() })
 })
 ```
 
@@ -471,8 +471,8 @@ const agent = new Agent({
 ```typescript
 const agent = new Agent({
   contextManager: new ContextManager({
-    strategy: new ContentRouter({ ... }),
-    storage: new S3Storage(...),
+    method: new ContentRouter({ ... }),
+    scratchpad: new S3Storage(...),
     threshold: 0.85,
     protectFirst: 1,
     transcript: { enabled: true, retrieval: true },
@@ -490,27 +490,27 @@ agent = Agent(context_manager="auto")
 
 # Level 3
 agent = Agent(context_manager=ContextManager(
-    strategy=ContentRouter(
-        tool_results=OffloadStrategy(preview="head-tail", keep_recent=3),
-        tool_result_errors=DropStrategy(keep_last=1),
-        assistant_messages=SummarizeStrategy(ratio=0.3),
+    method=ContentRouter(
+        tool_results=OffloadMethod(preview="head-tail", keep_recent=3),
+        tool_result_errors=DropMethod(keep_last=1),
+        assistant_messages=SummarizeMethod(ratio=0.3),
         user_messages="protect",
         images="offload",
     ),
-    storage=S3Storage(...),
+    scratchpad=S3Storage(...),
 ))
 
 # Level 4: 3P
-from strands_context_headroom import HeadroomStrategy
-agent = Agent(context_manager=ContextManager(strategy=HeadroomStrategy(api_key="...")))
+from strands_context_headroom import HeadroomMethod
+agent = Agent(context_manager=ContextManager(method=HeadroomMethod(api_key="...")))
 
 # Level 6: Custom
-class MyCompression(CompressionStrategy):
+class MyCompression(CompressionMethod):
     name = "my-compression"
     async def compress(self, messages, budget):
         return my_custom_logic(messages, budget)
 
-agent = Agent(context_manager=ContextManager(strategy=MyCompression()))
+agent = Agent(context_manager=ContextManager(method=MyCompression()))
 ```
 
 </details>
@@ -529,7 +529,7 @@ strands.context_manager
 ├── strands.context.proactive_compression
 │   ├── attribute: tokens_before
 │   ├── attribute: tokens_after
-│   ├── attribute: strategy_used
+│   ├── attribute: method_used
 │   └── attribute: messages_affected
 ├── strands.context.offload
 │   ├── attribute: tool_name
@@ -578,7 +578,7 @@ new Agent({ contextManager: new ContextManager({ preset: "auto" }) })
 new Agent({ conversationManager: new SummarizingConversationManager({ summaryRatio: 0.3 }) })
 
 // After
-new Agent({ contextManager: new ContextManager({ strategy: new SummarizeStrategy({ ratio: 0.3 }) }) })
+new Agent({ contextManager: new ContextManager({ method: new SummarizeMethod({ ratio: 0.3 }) }) })
 ```
 
 ### From message pinning (PR #2644)
