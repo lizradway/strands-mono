@@ -315,14 +315,33 @@ An append-only log of messages evicted from L0. Written before any lossy transfo
 
 Uses the same `Storage` interface as the offloader. Default: `InMemoryStorage` (non-durable). For session-based agents, use `FileStorage` or `S3Storage`.
 
-### 7.3 Retrieval tools (registered when `transcript.retrieval: true`)
+### 7.3 Eviction
+
+L1 grows as more messages are evicted from L0. Automatic eviction prevents unbounded storage growth:
+
+```typescript
+transcript: {
+  maxSize?: number | string,     // e.g. 10_000_000 or "10MB"
+  eviction?: "after-extraction" | "oldest-first" | "never"
+}
+```
+
+| Eviction policy | Behavior |
+|-----------------|----------|
+| `"after-extraction"` | Only evict messages that MemoryManager has already processed (extracted to L2). Unprocessed messages stay until extraction completes. Default when `memoryManager` is configured. |
+| `"oldest-first"` | Evict oldest messages regardless of extraction status. Default when no `memoryManager` is configured. |
+| `"never"` | L1 grows unbounded. For short-lived agents or when storage is cheap. |
+
+When `"oldest-first"` is used without a MemoryManager, unextracted information is permanently lost. This is acceptable for many use cases but worth surfacing — users who want cross-session knowledge should configure a MemoryManager.
+
+### 7.4 Retrieval tools (registered when `transcript.retrieval: true`)
 
 ```
 get_history(limit?: number, offset?: number) → Message[]
 search_history(query: string, limit?: number) → Message[]
 ```
 
-### 7.4 MemoryManager bridge
+### 7.5 MemoryManager bridge
 
 `MemoryManager` gets read access to the transcript for L1→L2 extraction:
 
