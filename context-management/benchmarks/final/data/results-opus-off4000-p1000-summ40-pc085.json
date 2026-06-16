@@ -1,0 +1,154 @@
+{
+  "suite": "contextbench",
+  "timestamp": "2026-06-09T15:02:03.337Z",
+  "gitSha": "481d62d6d641c24278b4bbd2174d4f037e9026e5",
+  "branch": "benchmark",
+  "results": [
+    {
+      "config": "off4000-p1000-summ40-pc085",
+      "task": "matplotlib__matplotlib-23314",
+      "metrics": {
+        "inputTokens": 877883,
+        "outputTokens": 9273,
+        "cycleCount": 50,
+        "latencyMs": 202241
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.14285714285714285,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "lib/mpl_toolkits/mplot3d/axes3d.py",
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/artist.py",
+        "lib/mpl_toolkits/mplot3d/axis3d.py",
+        "lib/matplotlib/figure.py",
+        "lib/matplotlib/image.py",
+        "lib/mpl_toolkits/mplot3d/art3d.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off4000-p1000-summ40-pc085",
+      "task": "matplotlib__matplotlib-22719",
+      "metrics": {
+        "inputTokens": 1239700,
+        "outputTokens": 9785,
+        "cycleCount": 56,
+        "latencyMs": 240249
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.1111111111111111,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "lib/matplotlib/category.py",
+        "lib/matplotlib/axis.py",
+        "lib/matplotlib/units.py",
+        "lib/matplotlib/lines.py",
+        "lib/matplotlib/artist.py",
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/axes/_axes.py",
+        "lib/matplotlib/cbook/__init__.py",
+        "lib/matplotlib/tests/test_category.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off4000-p1000-summ40-pc085",
+      "task": "django__django-14539",
+      "metrics": {
+        "inputTokens": 435425,
+        "outputTokens": 5482,
+        "cycleCount": 29,
+        "latencyMs": 127811
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.25,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/utils/html.py",
+        "tests/utils_tests/test_html.py",
+        "tests/template_tests/filter_tests/test_urlize.py",
+        "django/template/defaultfilters.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off4000-p1000-summ40-pc085",
+      "task": "sphinx-doc__sphinx-9602",
+      "metrics": {
+        "inputTokens": 1828659,
+        "outputTokens": 13850,
+        "cycleCount": 69,
+        "latencyMs": 323564
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.1111111111111111,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "sphinx/util/typing.py",
+        "sphinx/domains/python.py",
+        "sphinx/transforms/post_transforms/__init__.py",
+        "sphinx/pycode/ast.py",
+        "tests/test_domain_py.py",
+        "sphinx/ext/autodoc/typehints.py",
+        "sphinx/util/inspect.py",
+        "tests/test_util_typing.py",
+        "sphinx/domains/std.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off4000-p1000-summ40-pc085",
+      "task": "django__django-14089",
+      "metrics": {
+        "inputTokens": 25746,
+        "outputTokens": 1178,
+        "cycleCount": 8,
+        "latencyMs": 31223
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.5,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "django/utils/datastructures.py",
+        "tests/utils_tests/test_datastructures.py"
+      ],
+      "run": 1
+    }
+  ]
+}

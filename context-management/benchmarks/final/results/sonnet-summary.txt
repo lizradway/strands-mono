@@ -1,0 +1,42 @@
+SONNET 4.6 RESULTS SUMMARY
+============================
+
+Model: us.anthropic.claude-sonnet-4-6
+Tasks: 5 (easy, single-file, all saturating at 100% coverage)
+Benchmark: ContextBench Verified
+
+WINNING CONFIG (Phase 1):
+  ContextOffloader(maxResultTokens=1500, previewTokens=750)
+  + SummarizingConversationManager(summaryRatio=0.3)
+
+---
+
+PHASE 1 RESULTS (5 tasks, 16 configs):
+  Only off1500-p750-summ40 was statistically significant:
+    TAR: 6.01, 95% CI [1.04, 10.97]
+
+  Top configs by token savings:
+    off1500-p750-summ40:       762K avg, 100% coverage (54% savings vs control 1,663K)
+    off2500-p1500-summ40:      861K avg, 100% coverage (48% savings)
+    off1500-p750-slwin40:      901K avg, 100% coverage (46% savings)
+    off2500-p1500-slwin40:     915K avg, 100% coverage (45% savings)
+    control:                   1,663K avg, 100% coverage
+
+  Note: Some configs have 6 results (ran partial extra task). First 5 used for comparison.
+
+PROACTIVE SWEEP (5 tasks, off1500-p750-summ40 base):
+  none: 792K (52% savings)
+  0.6:  ~1,100K (31%) — WORSE
+  0.7:  ~1,000K (38%) — WORSE
+  0.85: 677K (59%) — BETTER
+  0.9:  969K (42%) — WORSE
+  0.95: 782K (53%) — NEUTRAL
+
+---
+
+CAVEATS:
+  - Only 5 tasks, all easy (single gold file)
+  - All configs get 100% coverage — no quality differentiation possible
+  - Savings may be skewed by sphinx-9602 (4.7M on control); median savings = 46%
+  - Never ran hard tasks on Sonnet with managed configs
+  - Control crashed on yt-dlp-5933 on a later 20-task run (exceeded 1M limit)

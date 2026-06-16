@@ -1,0 +1,64 @@
+{
+  "suite": "contextbench",
+  "timestamp": "2026-06-03T14:14:24.763Z",
+  "gitSha": "481d62d6d641c24278b4bbd2174d4f037e9026e5",
+  "branch": "benchmark",
+  "results": [
+    {
+      "config": "off1500-p750-slwin40",
+      "task": "django__django-15695",
+      "metrics": {
+        "inputTokens": 825471,
+        "outputTokens": 7768,
+        "cycleCount": 47,
+        "latencyMs": 183628
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 1,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "django/db/migrations/operations/models.py",
+        "tests/migrations/test_operations.py",
+        "django/db/migrations/state.py",
+        "django/db/backends/base/schema.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40",
+      "task": "huggingface__transformers-27663",
+      "metrics": {
+        "inputTokens": 725918,
+        "outputTokens": 10498,
+        "cycleCount": 39,
+        "latencyMs": 196118
+      },
+      "evaluation": {
+        "fileCoverage": 0.5,
+        "filePrecision": 0.3333333333333333,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "src/transformers/models/yolos/image_processing_yolos.py",
+        "src/transformers/models/detr/image_processing_detr.py",
+        "src/transformers/models/deformable_detr/image_processing_deformable_detr.py",
+        "src/transformers/models/conditional_detr/image_processing_conditional_detr.py",
+        "src/transformers/models/deta/image_processing_deta.py",
+        "tests/models/yolos/test_image_processing_yolos.py"
+      ],
+      "run": 1
+    }
+  ]
+}

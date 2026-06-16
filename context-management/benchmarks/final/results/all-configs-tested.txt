@@ -1,0 +1,45 @@
+ALL CONFIGURATIONS TESTED
+==========================
+
+mrt = maxResultTokens, p = previewTokens
+SlWin = SlidingWindowConversationManager, Summ = SummarizingConversationManager
+pc = proactiveCompression threshold, ws = windowSize
+
+PHASE 1 (Sonnet 4.6, 5 tasks):
+  control                          | SlWin ws=40, no offloader
+  off2500-p1500-slwin40            | mrt=2500, p=1500, SlWin ws=40
+  off1500-p750-slwin40             | mrt=1500, p=750, SlWin ws=40
+  off1500-p750-noretrieval-slwin40 | mrt=1500, p=750, no retrieval tool, SlWin ws=40
+  off2000-p750-slwin40-pc06        | mrt=2000, p=750, SlWin ws=40, pc=0.6
+  off2500-p1000-slwin40            | mrt=2500, p=1000, SlWin ws=40
+  off2500-p1500-slwin30            | mrt=2500, p=1500, SlWin ws=30
+  off2500-p1500-slwin50            | mrt=2500, p=1500, SlWin ws=50
+  slwin40-proactive                | SlWin ws=40, pc=0.7, no offloader
+  summarizing-03                   | Summ ratio=0.3, pc=0.7, no offloader
+  off1500-p750-summ40              | mrt=1500, p=750, Summ ratio=0.3
+  off2500-p1500-summ40             | mrt=2500, p=1500, Summ ratio=0.3
+  off2000-p750-summ40-pc06         | mrt=2000, p=750, Summ ratio=0.3, pc=0.6
+  off1500-p750-slwin40-pc07        | mrt=1500, p=750, SlWin ws=40, pc=0.7
+  off1500-p750-slwin40-pc085       | mrt=1500, p=750, SlWin ws=40, pc=0.85
+  off1500-p750-summ40-pc07         | mrt=1500, p=750, Summ ratio=0.3, pc=0.7
+
+PHASE 2 (Opus 4.6, 15-20 tasks):
+  control                          | SlWin ws=40, no offloader
+  off1500-p750-summ40              | mrt=1500, p=750, Summ ratio=0.3
+  off2500-p1500-summ40             | mrt=2500, p=1500, Summ ratio=0.3
+  off1500-p750-slwin40             | mrt=1500, p=750, SlWin ws=40
+  off1500-p750-summ40-pc07         | mrt=1500, p=750, Summ ratio=0.3, pc=0.7
+
+PHASE 3 (Opus 4.6, 20 tasks × 2 runs):
+  off1500-p750-summ40-pc085        | mrt=1500, p=750, Summ ratio=0.3, pc=0.85
+
+PROACTIVE SWEEP (Sonnet 4.6, 5 tasks):
+  off1500-p750-summ40-pc085        | pc=0.85
+  off1500-p750-summ40-pc09         | pc=0.9
+  off1500-p750-summ40-pc095        | pc=0.95
+
+NOT RUN (eval checkout bug):
+  off4000-p1000-summ40-pc085       | mrt=4000, p=1000, Summ ratio=0.3, pc=0.85
+  off8000-p2000-summ40-pc085       | mrt=8000, p=2000, Summ ratio=0.3, pc=0.85
+  off4000-p1000-summ40             | mrt=4000, p=1000, Summ ratio=0.3
+  off8000-p2000-summ40             | mrt=8000, p=2000, Summ ratio=0.3

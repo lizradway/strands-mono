@@ -1,0 +1,23 @@
+# Phase 3: Opus 4.6 replication run, off1500-p750-summ40-pc085, 20 tasks
+# Independent rerun to test reproducibility
+
+off1500-p750-summ40-pc085: coverage=100% precision=11.1% tokens=1048K cycles=58
+off1500-p750-summ40-pc085: coverage=100% precision=16.7% tokens=554K cycles=40
+off1500-p750-summ40-pc085: coverage=100% precision=11.1% tokens=1135K cycles=59
+off1500-p750-summ40-pc085: coverage=100% precision=9.1% tokens=1644K cycles=69
+off1500-p750-summ40-pc085: coverage=100% precision=25.0% tokens=220K cycles=25
+off1500-p750-summ40-pc085: coverage=100% precision=25.0% tokens=224K cycles=26
+off1500-p750-summ40-pc085: coverage=100% precision=12.5% tokens=2474K cycles=86
+off1500-p750-summ40-pc085: coverage=100% precision=11.1% tokens=2177K cycles=78
+off1500-p750-summ40-pc085: coverage=100% precision=50.0% tokens=31K cycles=9
+off1500-p750-summ40-pc085: coverage=100% precision=50.0% tokens=25K cycles=8
+off1500-p750-summ40-pc085: coverage=100% precision=25.0% tokens=1899K cycles=69
+off1500-p750-summ40-pc085: coverage=100% precision=25.0% tokens=2223K cycles=71
+off1500-p750-summ40-pc085: coverage=100% precision=28.6% tokens=892K cycles=56
+off1500-p750-summ40-pc085: coverage=100% precision=40.0% tokens=968K cycles=58
+off1500-p750-summ40-pc085: coverage=100% precision=30.0% tokens=1210K cycles=52
+off1500-p750-summ40-pc085: coverage=100% precision=25.0% tokens=2590K cycles=94
+off1500-p750-summ40-pc085: coverage=67% precision=33.3% tokens=719K cycles=43
+off1500-p750-summ40-pc085: coverage=100% precision=33.3% tokens=1157K cycles=56
+off1500-p750-summ40-pc085: coverage=100% precision=50.0% tokens=164K cycles=18
+off1500-p750-summ40-pc085: coverage=100% precision=50.0% tokens=223K cycles=21

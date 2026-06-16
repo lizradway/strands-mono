@@ -1,0 +1,40 @@
+OPUS 4.6 RESULTS SUMMARY
+=========================
+
+Model: us.anthropic.claude-opus-4-6-v1
+Benchmark: ContextBench Verified
+
+WINNING CONFIG:
+  ContextOffloader(maxResultTokens=1500, previewTokens=750)
+  + SummarizingConversationManager(summaryRatio=0.3, proactiveCompression={compressionThreshold: 0.85})
+
+---
+
+REGULAR TASKS (15 tasks, 1-12 gold files):
+  control:                  1,402K avg, 90.0% coverage
+  off1500-p750-slwin40:     1,261K avg, 91.7% coverage
+  off1500-p750-summ40:      1,363K avg, 91.7% coverage
+  off2500-p1500-summ40:     1,363K avg, 88.9% coverage
+  off1500-p750-summ40-pc07: 1,390K avg, 90.0% coverage
+
+HARD TASKS (5 tasks, 15-37 gold files):
+  control:                  5,468K avg, 68% coverage
+  off1500-p750-slwin40:     5,016K avg, 77% coverage
+  off1500-p750-summ40:      5,335K avg, 87% coverage
+
+PC085 REPLICATION (20 tasks = 15 regular + 5 hard):
+  off1500-p750-summ40-pc085: 1,078K avg, 98.4% coverage (run 2, 20 tasks)
+
+---
+
+STATISTICAL TESTS:
+  pc085 (20 tasks) vs control (first 20 of 33 available):
+    Sign test (tokens): 15/20 wins, p=0.021 — SIGNIFICANT
+    Sign test (coverage): 7/7 differing tasks, p=0.008 — SIGNIFICANT
+    TAR trimmed mean: 5.2x, 95% CI [2.67, 7.72] — SIGNIFICANT
+
+CAVEATS:
+  - Configs ran in separate sessions (same model, same tasks, different days)
+  - 30% between-run variance in token usage — specific savings percentages are approximate
+  - TAR inflated by 2 outlier tasks (TAR 89, 111); median TAR = 2.6
+  - pc085 vs summ40 (no proactive) is borderline: p=0.058

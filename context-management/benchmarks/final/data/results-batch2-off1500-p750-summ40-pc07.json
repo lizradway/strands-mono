@@ -1,0 +1,378 @@
+{
+  "suite": "contextbench",
+  "timestamp": "2026-06-02T21:11:59.957Z",
+  "gitSha": "481d62d6d641c24278b4bbd2174d4f037e9026e5",
+  "branch": "benchmark",
+  "results": [
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "matplotlib__matplotlib-23314",
+      "metrics": {
+        "inputTokens": 560800,
+        "outputTokens": 8428,
+        "cycleCount": 43,
+        "latencyMs": 151082
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.16666666666666666,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "lib/mpl_toolkits/mplot3d/axes3d.py",
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/artist.py",
+        "lib/matplotlib/figure.py",
+        "lib/matplotlib/image.py",
+        "lib/mpl_toolkits/mplot3d/axis3d.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "matplotlib__matplotlib-22719",
+      "metrics": {
+        "inputTokens": 1807280,
+        "outputTokens": 11245,
+        "cycleCount": 65,
+        "latencyMs": 249711
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.1,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "lib/matplotlib/category.py",
+        "lib/matplotlib/units.py",
+        "lib/matplotlib/axis.py",
+        "lib/matplotlib/tests/test_category.py",
+        "lib/matplotlib/lines.py",
+        "lib/matplotlib/artist.py",
+        "lib/matplotlib/cbook/__init__.py",
+        "lib/matplotlib/tests/test_axes.py",
+        "lib/matplotlib/axes/_axes.py",
+        "lib/matplotlib/axes/_base.py",
+        "doc/api/next_api_changes/deprecations/20334-AL.rst"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "django__django-14539",
+      "metrics": {
+        "inputTokens": 424443,
+        "outputTokens": 5963,
+        "cycleCount": 34,
+        "latencyMs": 125488
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.2,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/utils/html.py",
+        "tests/utils_tests/test_html.py",
+        "tests/template_tests/filter_tests/test_urlize.py",
+        "django/template/defaultfilters.py",
+        "tests/template_tests/filter_tests/test_urlizetrunc.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "sphinx-doc__sphinx-9602",
+      "metrics": {
+        "inputTokens": 2297733,
+        "outputTokens": 14380,
+        "cycleCount": 77,
+        "latencyMs": 302884
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "sphinx/util/typing.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "django__django-14089",
+      "metrics": {
+        "inputTokens": 143168,
+        "outputTokens": 3719,
+        "cycleCount": 19,
+        "latencyMs": 73991
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.5,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "django/utils/datastructures.py",
+        "tests/utils_tests/test_datastructures.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "matplotlib__matplotlib-26342",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 294134
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "pydata__xarray-2905",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 136
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "django__django-15022",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 171
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "django__django-13809",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 184
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "pydata__xarray-4075",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 193
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "instance_ansible__ansible-4c5ce5a1a9e79a845aff4978cfeb72a0d4ecf7d6-v1055803c3a812189a1133297f7f5468579283f86",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 182
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "yt-dlp__yt-dlp-5933",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 161
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "yt-dlp__yt-dlp-9862",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 199
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "django__django-15695",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 178
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-summ40-pc07",
+      "task": "huggingface__transformers-27663",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 263
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "The pending stream has been canceled (caused by: getaddrinfo ENOTFOUND bedrock-runtime.us-east-1.amazonaws.com)",
+      "run": 1
+    }
+  ]
+}

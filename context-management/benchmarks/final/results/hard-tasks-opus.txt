@@ -1,0 +1,30 @@
+HARD TASKS (15-37 gold files) — OPUS 4.6
+==========================================
+
+Tasks:
+  sveltejs__svelte-14629 (15 files, 291 spans)
+  instance_navidrome__navidrome-d8e794317f788198227e10fb667e10496b3eb99a (16 files)
+  ponylang__ponyc-3962 (17 files)
+  nushell__nushell-13357 (19 files)
+  cli__cli-8157 (37 files)
+
+RESULTS:
+
+Config                          Avg Tokens   Coverage   Precision
+control                         5,469K       68%        47.1%
+off1500-p750-slwin40            5,016K       77%        55.3%
+off1500-p750-summ40             5,336K       88%        56.8%
+
+PER-TASK:
+
+Task (gold files)     | control         | slwin40         | summ40
+svelte (15)           | 3,795K / 67%    | 3,536K / 100%   | 3,365K / 87%
+navidrome (16)        | 4,364K / 50%    | 4,724K / 94%    | 4,306K / 94%
+ponylang (17)         | 4,109K / 100%   | 4,275K / 100%   | 3,299K / 94%
+nushell (19)          | 10,861K / 63%   | 9,996K / 68%    | 12,170K / 74%
+cli (37)              | 4,214K / 59%    | 2,551K / 22%    | 3,538K / 89%
+
+KEY:
+  - Summarizing > sliding window on hardest tasks
+  - cli (37 files): slwin=22%, summ=89%, control=59%
+  - Control misses 32% of files on average

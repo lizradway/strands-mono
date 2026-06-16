@@ -1,0 +1,409 @@
+{
+  "suite": "contextbench",
+  "timestamp": "2026-06-02T17:56:41.849Z",
+  "gitSha": "481d62d6d641c24278b4bbd2174d4f037e9026e5",
+  "branch": "benchmark",
+  "results": [
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "matplotlib__matplotlib-23314",
+      "metrics": {
+        "inputTokens": 1070227,
+        "outputTokens": 9755,
+        "cycleCount": 57,
+        "latencyMs": 203235
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.16666666666666666,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "lib/mpl_toolkits/mplot3d/axes3d.py",
+        "lib/matplotlib/artist.py",
+        "lib/matplotlib/axes/_base.py",
+        "lib/mpl_toolkits/mplot3d/axis3d.py",
+        "lib/matplotlib/figure.py",
+        "lib/matplotlib/image.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "matplotlib__matplotlib-22719",
+      "metrics": {
+        "inputTokens": 877144,
+        "outputTokens": 7652,
+        "cycleCount": 39,
+        "latencyMs": 163684
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.14285714285714285,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "lib/matplotlib/category.py",
+        "lib/matplotlib/units.py",
+        "lib/matplotlib/axis.py",
+        "lib/matplotlib/tests/test_category.py",
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/lines.py",
+        "lib/matplotlib/artist.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "django__django-14539",
+      "metrics": {
+        "inputTokens": 344570,
+        "outputTokens": 5875,
+        "cycleCount": 28,
+        "latencyMs": 118937
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.2,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/utils/html.py",
+        "tests/template_tests/filter_tests/test_urlize.py",
+        "django/template/defaultfilters.py",
+        "tests/utils_tests/test_html.py",
+        "tests/template_tests/filter_tests/test_urlizetrunc.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "sphinx-doc__sphinx-9602",
+      "metrics": {
+        "inputTokens": 1868546,
+        "outputTokens": 11858,
+        "cycleCount": 67,
+        "latencyMs": 260703
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.14285714285714285,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "sphinx/util/typing.py",
+        "sphinx/domains/python.py",
+        "tests/test_domain_py.py",
+        "sphinx/pycode/ast.py",
+        "sphinx/ext/autodoc/typehints.py",
+        "tests/test_util_typing.py",
+        "sphinx/transforms/post_transforms/__init__.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "django__django-14089",
+      "metrics": {
+        "inputTokens": 139236,
+        "outputTokens": 3382,
+        "cycleCount": 16,
+        "latencyMs": 67330
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.5,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "django/utils/datastructures.py",
+        "tests/utils_tests/test_datastructures.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "matplotlib__matplotlib-26342",
+      "metrics": {
+        "inputTokens": 1751517,
+        "outputTokens": 9936,
+        "cycleCount": 64,
+        "latencyMs": 218163
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.2222222222222222,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "lib/matplotlib/contour.py",
+        "lib/matplotlib/collections.py",
+        "lib/matplotlib/contour.pyi",
+        "lib/matplotlib/collections.pyi",
+        "lib/matplotlib/tests/test_contour.py",
+        "doc/api/next_api_changes/deprecations/25247-AL.rst",
+        "doc/api/next_api_changes/behavior/25247-AL.rst",
+        "doc/users/next_whats_new.rst",
+        "doc/users/next_whats_new/contour_clip_path.rst"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "pydata__xarray-2905",
+      "metrics": {
+        "inputTokens": 1325925,
+        "outputTokens": 10172,
+        "cycleCount": 54,
+        "latencyMs": 206493
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.3333333333333333,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "xarray/core/variable.py",
+        "xarray/tests/test_variable.py",
+        "xarray/tests/test_dataarray.py",
+        "xarray/core/utils.py",
+        "xarray/core/dataarray.py",
+        "xarray/core/computation.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "django__django-15022",
+      "metrics": {
+        "inputTokens": 1414444,
+        "outputTokens": 10920,
+        "cycleCount": 47,
+        "latencyMs": 219256
+      },
+      "evaluation": {
+        "fileCoverage": 0.6666666666666666,
+        "filePrecision": 0.2222222222222222,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/contrib/admin/options.py",
+        "django/contrib/admin/views/main.py",
+        "tests/admin_changelist/tests.py",
+        "django/contrib/admin/views/autocomplete.py",
+        "django/contrib/admin/utils.py",
+        "tests/admin_views/admin.py",
+        "tests/admin_views/tests.py",
+        "docs/ref/contrib/admin/index.txt",
+        "tests/admin_views/test_autocomplete_view.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "django__django-13809",
+      "metrics": {
+        "inputTokens": 1452303,
+        "outputTokens": 9141,
+        "cycleCount": 42,
+        "latencyMs": 188974
+      },
+      "evaluation": {
+        "fileCoverage": 0.6666666666666666,
+        "filePrecision": 1,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/core/management/commands/runserver.py",
+        "django/core/management/base.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "pydata__xarray-4075",
+      "metrics": {
+        "inputTokens": 420600,
+        "outputTokens": 4752,
+        "cycleCount": 20,
+        "latencyMs": 90866
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.6666666666666666,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "xarray/core/weighted.py",
+        "xarray/tests/test_weighted.py",
+        "xarray/core/common.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "instance_ansible__ansible-4c5ce5a1a9e79a845aff4978cfeb72a0d4ecf7d6-v1055803c3a812189a1133297f7f5468579283f86",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 1616634
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "Unexpected token 'H', \"HEAD is no\"... is not valid JSON",
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "yt-dlp__yt-dlp-5933",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 197140
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "Unexpected token 'H', \"HEAD is no\"... is not valid JSON",
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "yt-dlp__yt-dlp-9862",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 179527
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "Unexpected token 'H', \"HEAD is no\"... is not valid JSON",
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "django__django-15695",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 222540
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "Unexpected token 'H', \"HEAD is no\"... is not valid JSON",
+      "run": 1
+    },
+    {
+      "config": "off2500-p1500-summ40",
+      "task": "huggingface__transformers-27663",
+      "metrics": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cycleCount": 0,
+        "latencyMs": 257593
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 0,
+        "symbolPrecision": 0,
+        "spanCoverage": 0,
+        "spanPrecision": 0,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [],
+      "error": "Unexpected token 'H', \"HEAD is no\"... is not valid JSON",
+      "run": 1
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Phase 2 Hard Tasks: Opus 4.6, 5 hard tasks (15-37 gold files)
+# Tasks: sveltejs-14629, navidrome, ponylang-3962, nushell-13357, cli-8157
+# Configs: control, off1500-p750-slwin40, off1500-p750-summ40
+
+control: coverage=66% precision=47.6% tokens=3795K cycles=83
+control: coverage=50% precision=42.1% tokens=4364K cycles=87
+control: coverage=100% precision=40.5% tokens=4109K cycles=80
+control: coverage=63% precision=38.7% tokens=10860K cycles=150
+control: coverage=59% precision=66.7% tokens=4214K cycles=90
+off1500-p750-slwin40: coverage=100% precision=48.4% tokens=3536K cycles=83
+off1500-p750-slwin40: coverage=93% precision=44.1% tokens=4723K cycles=90
+off1500-p750-slwin40: coverage=100% precision=40.5% tokens=4274K cycles=114
+off1500-p750-slwin40: coverage=68% precision=43.3% tokens=9995K cycles=165
+off1500-p750-slwin40: coverage=21% precision=100.0% tokens=2550K cycles=70
+off1500-p750-summ40: coverage=86% precision=56.5% tokens=3364K cycles=78
+off1500-p750-summ40: coverage=93% precision=44.1% tokens=4306K cycles=104
+off1500-p750-summ40: coverage=94% precision=41.0% tokens=3299K cycles=96
+off1500-p750-summ40: coverage=73% precision=45.2% tokens=12169K cycles=186
+off1500-p750-summ40: coverage=89% precision=97.1% tokens=3537K cycles=102

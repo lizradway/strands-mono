@@ -1,0 +1,430 @@
+{
+  "suite": "contextbench",
+  "timestamp": "2026-06-02T19:50:14.433Z",
+  "gitSha": "481d62d6d641c24278b4bbd2174d4f037e9026e5",
+  "branch": "benchmark",
+  "results": [
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "matplotlib__matplotlib-23314",
+      "metrics": {
+        "inputTokens": 520907,
+        "outputTokens": 7280,
+        "cycleCount": 39,
+        "latencyMs": 137382
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.25,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "lib/mpl_toolkits/mplot3d/axes3d.py",
+        "lib/matplotlib/artist.py",
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/figure.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "matplotlib__matplotlib-22719",
+      "metrics": {
+        "inputTokens": 1214844,
+        "outputTokens": 10272,
+        "cycleCount": 43,
+        "latencyMs": 203703
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.5,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "lib/matplotlib/category.py",
+        "lib/matplotlib/axis.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "django__django-14539",
+      "metrics": {
+        "inputTokens": 384522,
+        "outputTokens": 5424,
+        "cycleCount": 31,
+        "latencyMs": 120357
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.25,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/utils/html.py",
+        "tests/template_tests/filter_tests/test_urlize.py",
+        "tests/utils_tests/test_html.py",
+        "django/template/defaultfilters.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "sphinx-doc__sphinx-9602",
+      "metrics": {
+        "inputTokens": 2132556,
+        "outputTokens": 13841,
+        "cycleCount": 73,
+        "latencyMs": 295856
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.125,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "sphinx/util/typing.py",
+        "sphinx/domains/python.py",
+        "tests/test_domain_py.py",
+        "sphinx/transforms/post_transforms/__init__.py",
+        "sphinx/util/inspect.py",
+        "tests/test_util_typing.py",
+        "sphinx/pycode/ast.py",
+        "sphinx/addnodes.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "django__django-14089",
+      "metrics": {
+        "inputTokens": 37814,
+        "outputTokens": 2023,
+        "cycleCount": 9,
+        "latencyMs": 37121
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.5,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "django/utils/datastructures.py",
+        "tests/utils_tests/test_datastructures.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "matplotlib__matplotlib-26342",
+      "metrics": {
+        "inputTokens": 1607796,
+        "outputTokens": 11021,
+        "cycleCount": 70,
+        "latencyMs": 230896
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.3333333333333333,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "lib/matplotlib/contour.py",
+        "lib/matplotlib/collections.py",
+        "lib/matplotlib/contour.pyi",
+        "lib/matplotlib/tri/_tricontour.py",
+        "lib/matplotlib/collections.pyi",
+        "lib/matplotlib/tests/test_contour.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "pydata__xarray-2905",
+      "metrics": {
+        "inputTokens": 1131294,
+        "outputTokens": 10375,
+        "cycleCount": 54,
+        "latencyMs": 194544
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.3333333333333333,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "xarray/core/variable.py",
+        "xarray/tests/test_variable.py",
+        "xarray/core/dataarray.py",
+        "xarray/core/utils.py",
+        "xarray/tests/test_dataarray.py",
+        "xarray/core/computation.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "django__django-15022",
+      "metrics": {
+        "inputTokens": 1000718,
+        "outputTokens": 9092,
+        "cycleCount": 52,
+        "latencyMs": 188751
+      },
+      "evaluation": {
+        "fileCoverage": 0.6666666666666666,
+        "filePrecision": 0.2857142857142857,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/contrib/admin/options.py",
+        "django/contrib/admin/utils.py",
+        "django/contrib/admin/views/main.py",
+        "tests/admin_changelist/tests.py",
+        "tests/admin_changelist/admin.py",
+        "docs/ref/contrib/admin/index.txt",
+        "tests/admin_changelist/models.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "django__django-13809",
+      "metrics": {
+        "inputTokens": 1589636,
+        "outputTokens": 10388,
+        "cycleCount": 49,
+        "latencyMs": 199745
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.3,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "django/core/management/commands/runserver.py",
+        "django/core/management/base.py",
+        "tests/admin_scripts/tests.py",
+        "tests/staticfiles_tests/test_management.py",
+        "tests/user_commands/tests.py",
+        "django/core/management/commands/testserver.py",
+        "django/core/management/commands/migrate.py",
+        "django/core/management/__init__.py",
+        "django/contrib/staticfiles/management/commands/runserver.py",
+        "tests/migrations/test_commands.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "pydata__xarray-4075",
+      "metrics": {
+        "inputTokens": 261264,
+        "outputTokens": 3169,
+        "cycleCount": 17,
+        "latencyMs": 65177
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.6666666666666666,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "xarray/core/weighted.py",
+        "xarray/tests/test_weighted.py",
+        "xarray/core/common.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "instance_ansible__ansible-4c5ce5a1a9e79a845aff4978cfeb72a0d4ecf7d6-v1055803c3a812189a1133297f7f5468579283f86",
+      "metrics": {
+        "inputTokens": 12935507,
+        "outputTokens": 39497,
+        "cycleCount": 183,
+        "latencyMs": 872575
+      },
+      "evaluation": {
+        "fileCoverage": 0.16666666666666666,
+        "filePrecision": 0.4,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0.968503937007874,
+        "editLocPrecision": 0.968503937007874
+      },
+      "trajectory": [
+        "lib/ansible/module_utils/basic.py",
+        "lib/ansible/module_utils/facts/system/selinux.py",
+        "lib/ansible/module_utils/yumdnf.py",
+        "test/units/module_utils/basic/test_selinux.py",
+        "completely",
+        "test/integration/targets/infra/library/test.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "yt-dlp__yt-dlp-5933",
+      "metrics": {
+        "inputTokens": 719955,
+        "outputTokens": 7024,
+        "cycleCount": 36,
+        "latencyMs": 138848
+      },
+      "evaluation": {
+        "fileCoverage": 0.75,
+        "filePrecision": 0.75,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "yt_dlp/utils.py",
+        "yt_dlp/options.py",
+        "test/test_config.py",
+        "test/test_verbose_output.py",
+        "README.md"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "yt-dlp__yt-dlp-9862",
+      "metrics": {
+        "inputTokens": 1256921,
+        "outputTokens": 10215,
+        "cycleCount": 63,
+        "latencyMs": 203292
+      },
+      "evaluation": {
+        "fileCoverage": 1,
+        "filePrecision": 0.6666666666666666,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "yt_dlp/YoutubeDL.py",
+        "yt_dlp/options.py",
+        "test/test_YoutubeDL.py",
+        "yt_dlp/postprocessor/ffmpeg.py",
+        "README.md",
+        "yt_dlp/utils/_utils.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "django__django-15695",
+      "metrics": {
+        "inputTokens": 1046916,
+        "outputTokens": 9960,
+        "cycleCount": 47,
+        "latencyMs": 191057
+      },
+      "evaluation": {
+        "fileCoverage": 0,
+        "filePrecision": 0,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 0,
+        "editLocPrecision": 0
+      },
+      "trajectory": [
+        "django/db/migrations/operations/__init__.py"
+      ],
+      "run": 1
+    },
+    {
+      "config": "off1500-p750-slwin40-pc07",
+      "task": "huggingface__transformers-27663",
+      "metrics": {
+        "inputTokens": 912105,
+        "outputTokens": 14181,
+        "cycleCount": 41,
+        "latencyMs": 220408
+      },
+      "evaluation": {
+        "fileCoverage": 0.5,
+        "filePrecision": 0.3333333333333333,
+        "symbolCoverage": 1,
+        "symbolPrecision": 1,
+        "spanCoverage": 0,
+        "spanPrecision": 1,
+        "editLocRecall": 1,
+        "editLocPrecision": 1
+      },
+      "trajectory": [
+        "src/transformers/models/yolos/image_processing_yolos.py",
+        "<<",
+        "src/transformers/models/detr/image_processing_detr.py",
+        "src/transformers/models/conditional_detr/image_processing_conditional_detr.py",
+        "src/transformers/models/deta/image_processing_deta.py",
+        "src/transformers/models/deformable_detr/image_processing_deformable_detr.py",
+        "tests/models/yolos/test_image_processing_yolos.py"
+      ],
+      "run": 1
+    }
+  ]
+}
