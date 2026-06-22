@@ -16,7 +16,7 @@ The SDK needs a `ContextManager` class that:
 - Offers progressive disclosure to full customization
 - Supports pluggable third-party compression services
 - Unifies the concepts of compression, offloading, eviction, and protection into one model
-- Provides the L1 transcript layer for message recovery and MemoryManager integration
+- Provides the L1 short-term (session) memory layer for message recovery and MemoryManager integration
 
 ### 1.1 Why a *class*, and why now
 
@@ -26,12 +26,12 @@ The `ContextManager` class exists to make that design space **expressible and sw
 
 Three forces make this timely:
 - **Third-party compression is arriving** (Headroom, LLMLingua, AST-aware compressors). Without a stable `CompressionMethod` interface, each integration is a bespoke fork. With one, a 3P wrapper is ~10 lines.
-- **Memory (L2) is being designed in parallel.** The L1 transcript this class owns is the exact substrate a MemoryManager extracts from. Defining L1 now prevents two incompatible history layers later.
+- **Memory (L2) is being designed in parallel.** The L1 short-term (session) memory this class owns is the exact substrate a MemoryManager extracts from. Defining L1 now prevents two incompatible history layers later.
 - **Strategy should be configuration, not code.** Routing tool results and messages to different methods, or trying a managed service with a local fallback, should be a config change — not a new agent or a fork of the loop.
 
 ### 1.2 What the class delivers
 
-The class subsumes compression, offloading, eviction, and protection into a single model — `CompressionMethod` — with a `ContentRouter` to dispatch by content type, a `FallbackChain` for resilience, priority-based eviction, and an owned L1 transcript that guarantees recoverability before any lossy transform. Concretely it provides:
+The class subsumes compression, offloading, eviction, and protection into a single model — `CompressionMethod` — with a `ContentRouter` to dispatch by content type, a `FallbackChain` for resilience, priority-based eviction, and an owned L1 short-term (session) memory that guarantees recoverability before any lossy transform. Concretely it provides:
 
 - **Progressive disclosure.** `"auto"` stays a one-liner; everything from "tweak the preset" to "plug in a third-party method" to "fully custom pipeline" is reachable without leaving the API.
 - **A stable extension point.** New and third-party methods implement one ~10-line interface and compose with everything else — no agent-loop changes.
@@ -49,12 +49,12 @@ Most users *get* `auto` — it stays a one-liner (`contextManager: "auto"`), now
 The class's value is *expressing, composing, and swapping* strategies, not winning with a new algorithm — and the default stays `auto`. The reasons to build it are independent of any single method winning: third-party methods need a stable interface (or each is a fork), memory needs a defined L1 source, and `ConversationManager` can't express content routing / recoverable offload / priority. Even having confirmed `auto` is the best default we have, the next workload, model, or 3P integration is the case — and today there's no path to it short of hand-wiring or forking.
 
 **"Why not just extend `ConversationManager`?"**
-`ConversationManager` models "reduce the message list on overflow." It has no concept of content-type routing, recoverable offload with retrieval, an L1 transcript for MemoryManager, third-party methods, or per-message priority. Bolting these on overloads an abstraction built for a narrower job. The class subsumes `ConversationManager`'s role (it disables it and owns overflow recovery) under a model that fits all of the above. Existing `conversationManager` usage keeps working; this is additive.
+`ConversationManager` models "reduce the message list on overflow." It has no concept of content-type routing, recoverable offload with retrieval, an L1 short-term memory for MemoryManager, third-party methods, or per-message priority. Bolting these on overloads an abstraction built for a narrower job. The class subsumes `ConversationManager`'s role (it disables it and owns overflow recovery) under a model that fits all of the above. Existing `conversationManager` usage keeps working; this is additive.
 
 **"Compression methods are heuristics that may regress quality — isn't that risky?"**
 The design separates *whether to preserve* (the ContextManager always writes originals to L1 before lossy transforms) from *how to transform* (the method). Recoverability is structural, not per-method. Defaults stay conservative (`auto`); experimental methods are opt-in and isolated behind config, so a bad one is a one-line revert with no agent-loop surgery.
 
-**"Why own an L1 transcript instead of leaving history to sessions/memory?"**
+**"Why own an L1 short-term memory instead of leaving history to sessions/memory?"**
 Because the moment any method is lossy, the agent needs a recovery path, and a MemoryManager needs a defined source to extract L2 from. Without an owned L1, every method reinvents preservation and memory has no stable input. L1 is the single place "the original before we compressed it" lives — shared by offload, retrieval tools, and the memory bridge.
 
 **"Does this lock us into a compression strategy?"**
@@ -81,7 +81,7 @@ Everything the ContextManager does when under budget pressure is a **method** ap
 
 ### 2.2 L1 Writing
 
-L1 writing is not a method attribute — it's a **ContextManager-level behavior**. Before any lossy transformation, the ContextManager persists the original to L1 (transcript). Methods only decide *how* to transform L0; the ContextManager decides *whether* to preserve.
+L1 writing is not a method attribute — it's a **ContextManager-level behavior**. Before any lossy transformation, the ContextManager persists the original to L1 (short-term / session memory). Methods only decide *how* to transform L0; the ContextManager decides *whether* to preserve.
 
 Exceptions:
 - `"protect"` — no L1 write needed (message stays in L0)
@@ -279,7 +279,7 @@ export class ContextManager implements Plugin {
     scratchpad?: Scratchpad
     threshold?: number              // proactive compression ratio (0-1], default 0.85
     protectFirst?: number           // pin first N messages, default 1
-    transcript?: {
+    sessionMemory?: {               // L1 short-term (session) memory
       enabled?: boolean             // write to L1 before eviction, default true
       retrieval?: boolean           // register retrieval tools, default true
     }
@@ -310,7 +310,7 @@ new ContextManager({
   scratchpad: new InMemoryStorage(),
   threshold: 0.85,
   protectFirst: 1,
-  transcript: { enabled: true, retrieval: true },
+  sessionMemory: { enabled: true, retrieval: true },
 })
 ```
 
@@ -321,7 +321,7 @@ new ContextManager({
 | `BeforeModelCallEvent` | Check budget ratio. If > threshold, run proactive compression. |
 | `AfterToolCallEvent` | Check tool result size. If > offload threshold, apply tool result method immediately. |
 | `AfterModelCallEvent` | If `ContextWindowOverflowError`, run reactive compression (must succeed). |
-| `AgentInitializedEvent` | Register retrieval tools if transcript.retrieval is true. |
+| `AgentInitializedEvent` | Register retrieval tools if sessionMemory.retrieval is true. |
 
 ### 6.4 Relationship to ConversationManager
 
@@ -336,7 +336,7 @@ When `contextManager` is set:
 class ContextManager {
   // Read-only state
   get budget(): TokenBudget
-  get transcript(): TranscriptReader  // .search(query), .getRecent(n)
+  get sessionMemory(): SessionMemoryReader  // .search(query), .getRecent(n)
 
   // Programmatic control
   compress(): Promise<void>           // trigger compression manually
@@ -347,11 +347,11 @@ class ContextManager {
 
 ---
 
-## 7. L1 Transcript
+## 7. L1 Short-Term (Session) Memory
 
 ### 7.1 What it is
 
-An append-only log of messages evicted from L0. Written before any lossy transformation. Provides the agent with a way to recover information that was compressed away.
+L1 short-term memory: an append-only record of messages evicted from L0, scoped to the session. Written before any lossy transformation. Provides the agent with a way to recover information that was compressed away within the session, and is the source a MemoryManager reads to extract durable L2 knowledge.
 
 ### 7.2 Scratchpad
 
@@ -362,7 +362,7 @@ Uses the same `Scratchpad` interface as the offloader. Default: `InMemoryStorage
 L1 grows as more messages are evicted from L0. Automatic eviction prevents unbounded scratchpad growth:
 
 ```typescript
-transcript: {
+sessionMemory: {
   maxSize?: number | string,     // e.g. 10_000_000 or "10MB"
   eviction?: "after-extraction" | "oldest-first" | "never"
 }
@@ -376,7 +376,7 @@ transcript: {
 
 When `"oldest-first"` is used without a MemoryManager, unextracted information is permanently lost. This is acceptable for many use cases but worth surfacing — users who want cross-session knowledge should configure a MemoryManager.
 
-### 7.4 Retrieval tools (registered when `transcript.retrieval: true`)
+### 7.4 Retrieval tools (registered when `sessionMemory.retrieval: true`)
 
 ```
 get_history(limit?: number, offset?: number) → Message[]
@@ -385,13 +385,13 @@ search_history(query: string, limit?: number) → Message[]
 
 ### 7.5 MemoryManager bridge
 
-`MemoryManager` gets read access to the transcript for L1→L2 extraction:
+`MemoryManager` gets read access to L1 short-term memory for L1→L2 extraction:
 
 ```typescript
-memoryManager.source = contextManager.transcript
+memoryManager.source = contextManager.sessionMemory
 ```
 
-ContextManager doesn't know or care about L2. It just exposes its transcript. MemoryManager extracts facts/knowledge from it at session boundaries or on a schedule.
+ContextManager doesn't know or care about L2. It just exposes its L1 short-term memory. MemoryManager extracts facts/knowledge from it at session boundaries or on a schedule.
 
 ---
 
@@ -419,7 +419,7 @@ new TruncateMethod({ keep: "tail", tokens: 500 })
 This design covers L0↔L1 (within-session context management). The broader Memory SDK proposal covers L0↔L1↔L2 with cross-framework adapters.
 
 How they relate:
-- **ContextManager** owns L0 (context window) and L1 (session transcript)
+- **ContextManager** owns L0 (context window) and L1 (short-term / session memory)
 - **MemoryManager** owns L2 (cross-session knowledge) and reads from L1 for extraction
 - The `Scratchpad` interface and `CompressionMethod` interface are the same ones the Memory SDK proposal would use
 - If the Memory SDK ships, ContextManager becomes a component within it (not replaced by it)
@@ -517,7 +517,7 @@ const agent = new Agent({
     scratchpad: new S3Storage(...),
     threshold: 0.85,
     protectFirst: 1,
-    transcript: { enabled: true, retrieval: true },
+    sessionMemory: { enabled: true, retrieval: true },
     budget: { reserveForTools: 0.2, reserveForMemory: 0.1 },
     telemetry: true,
   })
@@ -661,6 +661,6 @@ const child = new Agent({
 })
 ```
 
-Child sees parent's transcript but has its own L0. Prevents re-exploration in delegation patterns.
+Child sees parent's L1 short-term memory but has its own L0. Prevents re-exploration in delegation patterns.
 
 </details>
