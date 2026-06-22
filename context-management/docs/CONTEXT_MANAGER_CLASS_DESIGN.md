@@ -1,7 +1,7 @@
 # Design: ContextManager Class
 
-**Status**: Proposed  
-**Date**: 2026-06-09  
+**Status**: Proposed (prototype implemented + benchmarked, 2026-06)  
+**Date**: 2026-06-09 (updated 2026-06-22 with implementation + benchmark results)  
 **Scope**: TypeScript + Python SDK  
 **Related**: [Context Strategy Design (v1 facade)](https://github.com/strands-agents/docs/pull/831), [MemoryManager Design](https://github.com/strands-agents/docs/pull/844), [Message Pinning](https://github.com/strands-agents/harness-sdk/pull/2644)
 
@@ -17,6 +17,67 @@ The SDK needs a `ContextManager` class that:
 - Supports pluggable third-party compression services
 - Unifies the concepts of compression, offloading, eviction, and protection into one model
 - Provides the L1 transcript layer for message recovery and MemoryManager integration
+
+### 1.1 Why a *class*, and why now
+
+Context management is not a solved problem with one right answer — it is a **design space** that varies by workload, model, and cost target. Today that space is inaccessible: a user is stuck between `"auto"` (a fixed black box) and hand-wiring a `ConversationManager` plus an offloader plus pinning utilities with no shared model tying them together. There is no vocabulary for "summarize messages but offload tool results," "compress JSON differently from prose," "try a managed service, fall back to local on outage," or "swap in a new compression technique without touching the agent loop."
+
+The `ContextManager` class exists to make that design space **expressible, swappable, and measurable** under one model — *not* to ship a single cleverer compression algorithm. This distinction is the crux of the proposal and is what the benchmark work below makes concrete: the value is the **architecture that lets you express and compare strategies**, because the field has no settled winner and the best strategy is empirical and workload-dependent.
+
+Three forces make this timely:
+- **Third-party compression is arriving** (Headroom, LLMLingua, AST-aware compressors). Without a stable `CompressionMethod` interface, each integration is a bespoke fork. With one, a 3P wrapper is ~10 lines.
+- **Memory (L2) is being designed in parallel.** The L1 transcript this class owns is the exact substrate a MemoryManager extracts from. Defining L1 now prevents two incompatible history layers later.
+- **We cannot tune what we cannot express.** The benchmark campaign in §1.2 was only possible because methods are pluggable — every A/B (head-tail vs importance vs structured-outline vs recency-bonus, each against the proven baseline) was a one-line config change, not a new agent. That capability *is* the product.
+
+### 1.2 Empirical grounding: what we learned building and benchmarking the prototype
+
+The class was implemented on the harness-sdk fork and benchmarked on **ContextBench** (SWE-style code-investigation tasks, file/span coverage scored from the agent trajectory). Key data, with the honest read:
+
+**Easy suite (Sonnet 4.6, 5 single-file tasks — coverage saturates at 100% for every config, so only tokens differ):**
+- The proven baseline `offload(1500)/preview(750) + summarize(0.3) + proactive 0.85` ("pc085") is near the efficient frontier; nothing beats it on these saturated tasks because every extra feature is additive token cost with no coverage headroom to win back.
+- A clean preview-only A/B (head-tail vs **importance-ranked** previews, same stack, sphinx, n=3) showed importance cut tokens ~25% at equal 100% coverage — evidence the *mechanism* matters, even where the whole-config comparison can't move.
+
+**Hard suite (Opus 4.6, 5 multi-file tasks, 15–37 gold files — coverage is NOT saturated; this is the discriminating set):**
+
+| Config | mean coverage | notes |
+|---|---|---|
+| no management (control) | 68% | baseline |
+| **pc085 (proven winner)** | **~85%** | solved nushell (89%) that nothing else did |
+| importance previews (ours) | ~85% (tie) | won svelte/ponylang; edge was within cli's noise |
+| structured-outline (ours) | ~78% | leaner tokens, lost coverage |
+| recently-accessed-files bonus (ours) | ~76% | regressed; reverted |
+
+**The honest conclusion: none of the new methods we built beat pc085 on the hard tasks.** Importance previews tie it; structured outlines and the recency bonus regress. An earlier "importance wins 90% vs 88%" claim was a **methodology artifact** — it compared against a non-proactive baseline; once pc085 (matched proactive setting) was run on the hard tasks (it never had been — the published pc085 result was a 20-task set that excluded the hard tasks), the win disappeared.
+
+**Why this strengthens, rather than weakens, the case for the class:**
+1. **The winner is one point in the space, and the class is what lets you land on it — and move off it when the workload changes.** pc085 wins *these* coverage-scored code tasks. A logs-heavy ops agent, a long-horizon research agent, or a cost-capped deployment will sit elsewhere. The class expresses pc085 *and* its alternatives as configuration.
+2. **Every negative result was cheap and safe because of the architecture.** We disproved three plausible ideas (importance-for-everything, structural outlines, recency bonus) with one-line config swaps and reverted with `git revert` — no agent-loop surgery, no risk to the shipping path. That is the class earning its keep as a research and tuning substrate.
+3. **The methodology lessons are durable and only capturable with measurement infrastructure the class enables:** always compare against the same proactive setting; ContextBench hard tasks are high-variance (cli swung 57%↔95% across reruns) so per-task claims need n≥3; and on coverage-scored tasks, keeping relevant content inline + summarization beats aggressive compression because agents don't reliably retrieve elided detail (a benchmark-vs-production mismatch worth stating explicitly).
+
+So the class does **not** claim to compress better than the current `"auto"`. It claims to make `"auto"` one selectable preset among many, make third-party and future methods first-class, give L1/L2 a defined home, and turn context strategy into something teams can measure and tune for their workload instead of accept as a black box.
+
+### 1.3 Anticipated questions / pushback
+
+**"The benchmarks show your new methods don't beat the existing `auto`. Why build the class at all?"**
+Because the class's value is *expressing and comparing* strategies, not winning with a new one. `"auto"` becomes a preset *inside* the class. The benchmark campaign — which found that `auto`/pc085 is in fact the one to keep for code tasks — was itself only possible because the class makes methods pluggable. "We rigorously confirmed the current default is best, and shipped the ability to choose otherwise" is a feature, not a failure. The alternative (no class) means the next workload or the next 3P method requires a fork.
+
+**"Isn't this over-engineered? Most users just want `auto`."**
+Most users *get* `auto` — it stays a one-liner (`contextManager: "auto"`), now backed by the class. Progressive disclosure means complexity is opt-in: Level 1 is unchanged; Levels 2–7 exist only for users who hit the wall the v1 facade has no answer for. The class adds zero required surface for the 80% case.
+
+**"Why not just extend `ConversationManager`?"**
+`ConversationManager` models "reduce the message list on overflow." It has no concept of content-type routing, recoverable offload with retrieval, an L1 transcript for MemoryManager, third-party methods, or per-message priority. Bolting these on overloads an abstraction built for a narrower job. The class subsumes `ConversationManager`'s role (it disables it and owns overflow recovery) under a model that fits all of the above. Existing `conversationManager` usage keeps working; this is additive.
+
+**"Compression methods are heuristics that may regress quality — isn't that risky?"**
+Exactly why the design separates *whether to preserve* (the ContextManager always writes originals to L1 before lossy transforms) from *how to transform* (the method). Recoverability is structural, not per-method. And the benchmark harness — enabled by the class — is how regressions get caught *before* shipping, as happened with the recency bonus and structured outlines. Defaults stay conservative (`auto`); experimental methods are opt-in.
+
+**"Three of the four new methods regressed. Doesn't that suggest the whole direction is wrong?"**
+It suggests *those specific heuristics* are wrong for *coverage-scored code tasks*, which is a valuable, bounded finding — not a verdict on the architecture. The methods remain useful options off the default path (importance is token-efficient at parity; structured-outline is token-lean when coverage isn't the priority). The architecture's job is to let such methods exist, be measured, and be rejected cleanly — all of which it did.
+
+**"Why own an L1 transcript instead of leaving history to sessions/memory?"**
+Because the moment any method is lossy, the agent needs a recovery path, and a MemoryManager needs a defined source to extract L2 from. Without an owned L1, every method reinvents preservation and memory has no stable input. L1 is the single place "the original before we compressed it" lives — shared by offload, retrieval tools, and the memory bridge.
+
+**"Does this lock us into a compression strategy?"**
+The opposite. It's the de-locking move: `FallbackChain`, `ContentRouter`, and the `CompressionMethod` interface mean strategy is data, not code. Swapping pc085 for a future trained compressor, or routing logs to one method and code to another, is configuration.
 
 ---
 
