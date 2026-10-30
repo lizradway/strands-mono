@@ -4,6 +4,10 @@ One class per arm. Each builds Harbor's strandsharness agent (the wrapper below 
 from strands-agents/harbor, harbor-runner/strands-infra-runner/agents/strandsharness/agent.py)
 and differs only in the ``context_manager=`` passed to ``create_harness``.
 
+Every arm runs without the ``web_fetch`` tool and is told not to look up the upstream fix:
+ContextBench tasks are real, publicly fixed bugs, and fetching the fix inflates coverage
+independently of the context manager. The shell keeps network access for build dependencies.
+
 Utilization values assume Sonnet 4.6's 1M-token window: 0.04 is about 40K tokens, 0.08 about
 80K. Every arm ends with the SDK's emergency truncate, which ContextManager always appends.
 """
@@ -19,15 +23,19 @@ _MANTLE_ROUTE_PREFIX = "openai."
 _MANTLE_OPENAI_VENDOR_PREFIX = "openai.gpt"
 _MANTLE_HOST = "bedrock-mantle."
 _MANTLE_ANTHROPIC_BUILTIN_TOOLS = {"web_search": False}
+_NO_LOOKUP = (
+    "Do not look up this bug's fix online: no GitHub issues, pull requests, commits or diffs for "
+    "this repository, by any tool. Downloading build dependencies is fine."
+)
 
 
-def _task_instructions(task_workdir: str | None) -> str | None:
+def _task_instructions(task_workdir: str | None) -> str:
     if not task_workdir:
-        return None
+        return _NO_LOOKUP
     return (
         f"You are working inside a benchmark task container. The task root is {task_workdir}. "
         "Run `pwd` before acting, resolve task files relative to that root, and use absolute paths "
-        "when writing or editing files."
+        "when writing or editing files. " + _NO_LOOKUP
     )
 
 
@@ -71,10 +79,13 @@ def _build(context_manager) -> Agent:
     if task_workdir:
         os.chdir(task_workdir)
     executor = _tool_executor()
+    builtin_tools = {"web_fetch": False}
+    if _on_mantle_anthropic_endpoint():
+        builtin_tools.update(_MANTLE_ANTHROPIC_BUILTIN_TOOLS)
     kwargs = {
         "model": _resolve_model(),
         **({"tool_executor": executor} if executor is not None else {}),
-        **({"builtin_tools": dict(_MANTLE_ANTHROPIC_BUILTIN_TOOLS)} if _on_mantle_anthropic_endpoint() else {}),
+        "builtin_tools": builtin_tools,
         **({"effort": os.environ["HARBOR_REASONING_EFFORT"]} if os.environ.get("HARBOR_REASONING_EFFORT") else {}),
         "instructions": _task_instructions(task_workdir),
         "context_manager": context_manager,

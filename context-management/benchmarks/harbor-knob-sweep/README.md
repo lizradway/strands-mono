@@ -23,4 +23,7 @@ Harbor's strandsharness agent with a different `context_manager=`. Runs on the d
 | `agent:A5Agent` | summarize(tool_results) >4000 first; then auto truncate; auto summarize |
 | `agent:A6Agent` | auto truncate; drop(tool_results) keep newest 30; auto summarize |
 
+Every arm runs without `web_fetch` and is instructed not to look up the upstream fix (commits
+from this one on; `c857ed7` has both). The shell keeps network access for build dependencies.
+
 Utilization assumes Sonnet 4.6's 1M window; at that size auto's 0.85 summarize never fires on ContextBench.
