@@ -8,8 +8,8 @@ Every arm runs without the ``web_fetch`` tool and is told not to look up the ups
 ContextBench tasks are real, publicly fixed bugs, and fetching the fix inflates coverage
 independently of the context manager. The shell keeps network access for build dependencies.
 
-Utilization values assume Sonnet 4.6's 1M-token window: 0.04 is about 40K tokens, 0.08 about
-80K. Every arm ends with the SDK's emergency truncate, which ContextManager always appends.
+Utilization values assume a 1M-token window (Opus 4.8 and Sonnet 4.6; GPT-5.6 resolves to 1.05M): 0.04 is about 40K tokens, 0.08 about
+80K. Every arm except OffAgent ends with the SDK's emergency truncate, which ContextManager always appends.
 """
 
 import os
@@ -114,6 +114,20 @@ class AutoAgent:
 
 class AutoRepAgent(AutoAgent):
     """Second run of auto, for the run-to-run noise floor."""
+
+
+class OffAgent:
+    """No context management: the full history goes to every call."""
+
+    def create_agent(self) -> Agent:
+        return _build(False)
+
+
+class AgenticAgent:
+    """The "agentic" preset: the model manages its own context through injected tools."""
+
+    def create_agent(self) -> Agent:
+        return _build("agentic")
 
 
 class U1Agent:

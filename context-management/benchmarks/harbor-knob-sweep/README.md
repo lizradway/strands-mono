@@ -10,6 +10,8 @@ Harbor's strandsharness agent with a different `context_manager=`. Runs on the d
 |---|---|
 | `agent:AutoAgent` | `"auto"`: truncate(tool_results) >1500 → 750 preview; summarize(*) at util 0.85, keep 4 |
 | `agent:AutoRepAgent` | same as auto, for the noise floor |
+| `agent:OffAgent` | no context management (`context_manager=False`) |
+| `agent:AgenticAgent` | `"agentic"`: model-driven context management through injected tools |
 | `agent:U1Agent` | auto truncate; summarize(*) at util 0.08 (~80K), keep 4 |
 | `agent:U2Agent` | auto truncate; summarize(*) at util 0.04 (~40K), keep 4 |
 | `agent:U3Agent` | auto truncate; summarize(*) at util 0.04, keep 12 |
