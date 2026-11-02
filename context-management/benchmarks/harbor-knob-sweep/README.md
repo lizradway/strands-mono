@@ -22,8 +22,18 @@ Harbor's strandsharness agent with a different `context_manager=`. Runs on the d
 | `agent:A4Agent` | auto truncate; truncate(tool_result_errors) >200 → 100 preview, keep newest 2; auto summarize |
 | `agent:A5Agent` | summarize(tool_results) >4000 first; then auto truncate; auto summarize |
 | `agent:A6Agent` | auto truncate; drop(tool_results) keep newest 30; auto summarize |
+| `agent:E1Agent` | truncate(tool::shell) >600 → 300 tail preview; then auto truncate; auto summarize |
+| `agent:E2Agent` | E1's shell tail; then T1's truncate; auto summarize |
+| `agent:L1Agent` | auto truncate; at util 0.08, drop older turns whose result is >500 tokens, keep newest 8; auto summarize |
+| `agent:L2Agent` | auto truncate; at util 0.08, drop the older half of read and shell turns; auto summarize |
 
 Every arm runs without `web_fetch` and is instructed not to look up the upstream fix (commits
 from this one on; `c857ed7` has both). The shell keeps network access for build dependencies.
+
+With `utilization` set, a strategy removes whole turns (the tool call and its result) instead of
+shortening blocks, so L1 and L2 drop turns.
+
+`tool_result_errors` matches only tool results with error status; the shell tool reports a failing
+command as a normal result with its `exit_code`, so A1 and A4 rarely act.
 
 Utilization assumes Sonnet 4.6's 1M window; at that size auto's 0.85 summarize never fires on ContextBench.

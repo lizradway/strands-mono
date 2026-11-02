@@ -212,3 +212,54 @@ class A6Agent:
                 _compact_summarize(),
             )
         )
+
+
+def _shell_tail(threshold: int = 600, preview_tokens: int = 300):
+    return Offload.truncate(["tool::shell"], {"preview_tokens": preview_tokens, "preview": "tail"}).when(
+        threshold=threshold
+    )
+
+
+class E1Agent:
+    """Shell output keeps a shorter tail preview: build and test logs end with the result."""
+
+    def create_agent(self) -> Agent:
+        return _build(_pipeline(_shell_tail(), _lead_truncate(), _compact_summarize()))
+
+
+class E2Agent:
+    """T1 plus E1."""
+
+    def create_agent(self) -> Agent:
+        return _build(
+            _pipeline(_shell_tail(), _lead_truncate(threshold=750, preview_tokens=375), _compact_summarize())
+        )
+
+
+class L1Agent:
+    """At about 80K tokens, drops older turns whose tool result is still over 500 tokens.
+
+    The threshold sits below the lead truncate's 750-token preview, which runs first on arrival.
+    """
+
+    def create_agent(self) -> Agent:
+        return _build(
+            _pipeline(
+                _lead_truncate(),
+                Offload.drop("tool_results").when(threshold=500, utilization=0.08, preserve_recent=8),
+                _compact_summarize(),
+            )
+        )
+
+
+class L2Agent:
+    """At about 80K tokens, drops the older half of read and shell turns; edits and writes stay."""
+
+    def create_agent(self) -> Agent:
+        return _build(
+            _pipeline(
+                _lead_truncate(),
+                Offload.drop(["tool::read", "tool::shell"]).when(utilization=0.08, preserve_recent=0.5),
+                _compact_summarize(),
+            )
+        )
